@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 The wire protocol has its own version (`PROTOCOL_VERSION` in
 `src/shared/protocol.ts`); a change to it is always called out here.
 
-## [1.0.0] — Unreleased
+## [1.0.0] — 2026-10-13
 
 First public release. Protocol version 1.
 
