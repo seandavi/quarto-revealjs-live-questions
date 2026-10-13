@@ -1,3 +1,11 @@
-# Copy to .dev.vars for `wrangler dev` (it is gitignored).
-# In production: bunx wrangler secret put PRESENTER_KEY
-PRESENTER_KEY=dev
+# PRESENTER_KEY is the presenter secret: whoever holds it can run your
+# questions. Use a long random value, e.g. the output of
+#   openssl rand -hex 24
+# and keep a copy; you open your deck once with ?presenter=<key>.
+#
+# Deploy to Cloudflare button: this file is how the setup page knows to ask
+# for PRESENTER_KEY. Paste your random value there.
+# Command line deploy: bunx wrangler secret put PRESENTER_KEY
+# Local `wrangler dev`: copy this file to .dev.vars (gitignored) and fill in
+# a value; a short one such as "dev" is fine on your own machine.
+PRESENTER_KEY=
