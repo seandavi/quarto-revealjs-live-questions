@@ -143,9 +143,39 @@ non-list text inside the div; else the text of the nearest preceding heading.
   original list, with task-list markers stripped, as the static fallback and
   as the source of the option labels' HTML.
 - Writes the resolved config as JSON into
-  `<script type="application/json" id="lp-config">`.
+  `<script type="application/json" id="lp-config">` (in the document head).
 - Warns (via `quarto.log.warning`) about duplicate ids, polls with fewer than
-  two options, and values outside `LIMITS`.
+  two options, and values outside `LIMITS`. Out-of-range `max-words` /
+  `max-answers` are clamped; over-long prompts and options are truncated.
+
+As built, for example:
+
+```html
+<div id="capital" class="lp-question lp-poll"
+     data-lp='{"type":"poll","id":"capital","prompt":"What is the capital of Australia?",
+               "options":["Sydney","Canberra","Melbourne","Perth"],"correct":[1],"results":"live"}'>
+  <div class="lp-text">…non-list content of the div, if any…</div>
+  <ul><li>Sydney</li><li>Canberra</li>…</ul>
+</div>
+<div id="mood" class="lp-question lp-wordcloud"
+     data-lp='{"type":"wordcloud","id":"mood","prompt":"One word for today’s lecture?",
+               "maxWords":2,"maxAnswers":3,"results":"live"}'></div>
+
+<script type="application/json" id="lp-config">
+{"server":"http://localhost:8787","session":"example","closeOnLeave":true,"results":"live","qr":true}
+</script>
+```
+
+- `correct` holds 0-based option indices. `server` is omitted when not
+  configured (trailing slashes are stripped).
+- The generated id is `q-` + the first 10 hex digits of
+  `sha1(prompt .. "\n" .. options joined by "\n")`.
+- The default session is the input file stem with characters outside
+  `[A-Za-z0-9_-]` replaced by `-` (runs collapsed, leading and trailing `-`
+  dropped, cut to 64 characters).
+- One extension contributes both the filter and the plugin; a document lists
+  it under both `filters: [live-poll]` and `revealjs-plugins: [live-poll]`
+  (verified with Quarto 1.9).
 
 ## Presenting
 
@@ -177,7 +207,12 @@ opens it is a viewer.
 - `open` is idempotent. Reloading the deck or revisiting a slide keeps
   existing votes, as long as the question's definition has not changed.
 - After a reconnect, the presenter re-sends `open` for the current slide's
-  question so the server matches the deck.
+  question so the server matches the deck. It waits for the first `deck`
+  state and skips the `open` if the server already has that question live
+  with the same definition, so a question the presenter closed stays closed
+  through a network blip. Likewise, if the presenter is on a slide without a
+  question and the last question it opened is still open, it sends `close`.
+- If a slide holds more than one question, the first one is the one opened.
 
 ### Keys and controls
 
@@ -192,7 +227,13 @@ Reveal and Quarto already use H/J/K/L, N, P, B, V, F, O, S, G, M, E, R and
 are registered with `deck.addKeyBinding` so they show up in the `?` help
 overlay. In presenter mode only, a small control strip on the question
 (visible on hover or keyboard focus) offers close/reopen voting and reset
-(reset asks for confirmation first).
+(reset asks for confirmation first). Reopen sends `open` again.
+
+- `Q` works on any slide and in every live mode; `Escape`, a click, or
+  changing slide closes the overlay.
+- `T` is local to the deck it is pressed in (there is no protocol message
+  for it). Results also become visible once a poll's answer is revealed.
+- `A` in a viewer deck only shows a "presenter only" toast.
 
 ### What the slide shows
 
@@ -202,13 +243,22 @@ pill (`LIVE`, `CLOSED`, `OFFLINE`). Colors come from the reveal theme's CSS
 variables (`--r-main-color`, `--r-link-color`, `--r-background-color` and so
 on), so the component works on light and dark themes.
 
+- The component takes the slide height left below it (it is sized when its
+  slide is shown), and the bar chart shrinks its text, down to 60%, until
+  every option fits.
 - **Bar chart**: horizontal bars, one per option. The label HTML is taken
   from the original list item; each bar shows its count and percentage, and
-  bar widths animate. After a reveal, correct options are highlighted and the
-  others dimmed.
+  bar widths animate. Widths are relative to the leading option (the
+  percentage is of all votes). After a reveal, correct options are
+  highlighted and the others dimmed.
 - **Word cloud**: a spiral layout with each word's position remembered. A
   word keeps its place as counts grow and moves only if it starts to collide,
-  so the cloud never reshuffles. Font size scales with count. In presenter
+  so the cloud never reshuffles. Font size scales with the square root of
+  `count / maxCount`, so sizes hold steady as counts grow in proportion; all
+  fonts shrink together (never below 60%) when the cloud gets crowded, and
+  the least frequent words are left out if even that does not fit. The
+  layout is per deck, so two decks can arrange the same words differently.
+  In presenter
   mode, clicking a word hides it (moderation). Hidden words are listed in a
   presenter-only tray, where clicking one restores it.
 
