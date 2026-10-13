@@ -35,5 +35,15 @@
     "@types/ws": "^8.18.2",
     "typescript": "^7.0.2",
     "wrangler": "^4.150.0"
+  },
+  "cloudflare": {
+    "bindings": {
+      "PRESENTER_KEY": {
+        "description": "The presenter secret: whoever holds it can open and run your questions. Use a long random value, for example the output of `openssl rand -hex 24`, and keep a copy: you open your deck once with `?presenter=<key>`."
+      },
+      "ROOMS": {
+        "description": "One SQLite-backed Durable Object per live session. Created for you; nothing to configure."
+      }
+    }
   }
 }
