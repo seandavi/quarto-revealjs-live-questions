@@ -102,8 +102,11 @@ bun run build:deck
 git add _extensions/live-poll/live-poll.js
 ```
 
-CI rebuilds the bundle and fails if it differs from the committed file. Do
-not edit `live-poll.js` by hand. `public/vote.js` and `dist/` are build
+CI rebuilds the bundle and fails if it differs from the committed file. CI
+builds with the Bun release pinned as `BUN_VERSION` in
+`.github/workflows/ci.yml`; if your Bun produces a different file, build with
+that release (`bunx bun@<version> run build:deck`), or update the pin in the
+same pull request. Do not edit `live-poll.js` by hand. `public/vote.js` and `dist/` are build
 output and are not committed.
 
 ## Tests
