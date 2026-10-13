@@ -1,0 +1,12 @@
+title: Quarto-reveal-questions
+author: Sean Davis
+version: 1.0.0
+quarto-required: ">=1.9.0"
+contributes:
+  revealjs-plugins:
+    - name: RevealQuartorevealquestions
+      script:
+        - quarto-reveal-questions.js
+      stylesheet:
+        - quarto-reveal-questions.css
+
