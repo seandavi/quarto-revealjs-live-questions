@@ -17,8 +17,8 @@ You need:
   tested with 1.9)
 - [just](https://github.com/casey/just) (optional; every recipe is a short
   command you can run by hand)
-- Node.js 20 or later to run the built Node server (the Docker image uses
-  Node 24)
+- Node.js 22 or later for Wrangler (the built Node server itself runs on
+  Node 20 or later; the Docker image uses Node 24)
 - Docker, only if you work on the container
 
 ```bash

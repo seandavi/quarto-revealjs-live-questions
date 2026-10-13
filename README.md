@@ -88,7 +88,8 @@ The extension has to be listed twice, under `filters` and under
 ### 3. Run a server
 
 The quickest option is Cloudflare's free plan. You need
-[Bun](https://bun.sh) and a Cloudflare account.
+[Bun](https://bun.sh), Node.js 22 or later (for Wrangler) and a Cloudflare
+account.
 
 ```bash
 git clone https://github.com/seandavi/quarto-live-poll.git
