@@ -109,7 +109,7 @@ class VotePage {
   private retryTimer: number | undefined;
   private heartbeat: number | undefined;
   private state: AudienceState | null = null;
-  private mine: Mine = { votes: {}, answers: {} };
+  private mine: Mine = { votes: {}, answers: {}, ratings: {} };
   /** Optimistic poll choice while the server confirms it. */
   private pendingVote: { id: string; choice: number } | null = null;
   /** Identity of the view currently in the DOM; rebuilt only when it changes. */

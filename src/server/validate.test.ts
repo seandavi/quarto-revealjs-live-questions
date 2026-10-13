@@ -46,6 +46,10 @@ describe("parseMessage", () => {
     expect(okMsg({ t: "answer", id: "q1", text: "hi" })).toEqual({ t: "answer", id: "q1", text: "hi" });
     rejects({ t: "answer", id: "q1", text: "x".repeat(LIMITS.answerInputChars + 1) });
     rejects({ t: "answer", id: "q1" });
+    expect(okMsg({ t: "rate", id: "q1", statement: 1, choice: 4, x: 1 })).toEqual({ t: "rate", id: "q1", statement: 1, choice: 4 });
+    rejects({ t: "rate", id: "q1", choice: 4 });
+    rejects({ t: "rate", id: "q1", statement: 0, choice: "4" });
+    rejects({ t: "rate", id: "q1", statement: 0.5, choice: 1 });
   });
   test("presenter messages", () => {
     expect(okMsg({ t: "close", id: "q1" })).toEqual({ t: "close", id: "q1" });
@@ -71,6 +75,8 @@ describe("parseMessage", () => {
 describe("validateQuestion", () => {
   const poll = { type: "poll", id: "q1", prompt: "P", options: ["a", "b"] };
   const cloud = { type: "wordcloud", id: "w1", prompt: "P", maxWords: 2, maxAnswers: 3 };
+  const likert = { type: "likert", id: "l1", prompt: "P", statements: ["s"], labels: ["No", "Yes"], numeric: false, anchors: null };
+  const numeric = { ...likert, labels: ["0", "1", "2"], numeric: true, anchors: ["Low", "High"] };
   test("accepts valid questions", () => {
     expect(validateQuestion(poll)).toEqual(poll as never);
     expect(validateQuestion(cloud)).toEqual(cloud as never);
@@ -81,6 +87,15 @@ describe("validateQuestion", () => {
       maxWords: 3,
       maxAnswers: 3,
     });
+    expect(validateQuestion(likert)).toEqual(likert as never);
+    expect(validateQuestion(numeric)).toEqual(numeric as never);
+    // Defaults; anchors are dropped from labeled scales.
+    expect(validateQuestion({ ...likert, numeric: undefined, anchors: ["a", "b"], extra: 1 })).toEqual(likert as never);
+    expect(validateQuestion({ ...numeric, anchors: undefined, labels: ["-2", "-1", "0", "1", "2"] })).toEqual({
+      ...numeric,
+      labels: ["-2", "-1", "0", "1", "2"],
+      anchors: null,
+    } as never);
   });
   test("enforces LIMITS", () => {
     const bad = (q: object) => expect(typeof validateQuestion(q)).toBe("string");
@@ -95,5 +110,16 @@ describe("validateQuestion", () => {
     bad({ ...cloud, maxWords: LIMITS.maxWordsCeiling + 1 });
     bad({ ...cloud, maxAnswers: 2.5 });
     bad({ ...poll, type: "quiz" });
+    bad({ ...likert, statements: [] });
+    bad({ ...likert, statements: Array.from({ length: LIMITS.likertStatements + 1 }, (_, i) => `s${i}`) });
+    bad({ ...likert, statements: ["x".repeat(LIMITS.likertStatementChars + 1)] });
+    bad({ ...likert, labels: ["only one"] });
+    bad({ ...likert, labels: Array.from({ length: LIMITS.likertPoints + 1 }, (_, i) => `p${i}`) });
+    bad({ ...likert, labels: ["No", "x".repeat(LIMITS.likertLabelChars + 1)] });
+    bad({ ...likert, numeric: "yes" });
+    bad({ ...numeric, labels: ["0", "2", "3"] });
+    bad({ ...numeric, labels: ["2", "1", "0"] });
+    bad({ ...numeric, labels: ["low", "high"] });
+    bad({ ...numeric, anchors: ["only one"] });
   });
 });
