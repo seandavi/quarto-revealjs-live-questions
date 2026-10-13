@@ -3,12 +3,12 @@
  *
  *   bun scripts/smoke.ts http://localhost:8787 <PRESENTER_KEY> [session]
  *
- * Drives a presenter, a viewer and several audience sockets through a poll and
- * a word cloud, checks the error paths and the export route, and leaves the
+ * Drives a presenter, a viewer and several audience sockets through a poll, a
+ * word cloud and a likert question, checks the error paths and the export route, and leaves the
  * session's data in place (its name is printed) so persistence can be checked
  * after a restart. Exits non-zero on the first failure.
  */
-import type { ClientMessage, DeckState, ServerMessage, WordcloudResults } from "../src/shared/protocol";
+import type { ClientMessage, DeckState, LikertResults, ServerMessage, WordcloudResults } from "../src/shared/protocol";
 import { PROTOCOL_VERSION, socketPath } from "../src/shared/protocol";
 
 const [base = "http://localhost:8787", key = "dev", sessionArg] = process.argv.slice(2);
@@ -110,6 +110,7 @@ async function connect(name: string, role: "deck" | "audience", voter: string, k
 }
 
 const words = (s: DeckState, id: string) => s.questions[id]?.results as WordcloudResults | undefined;
+const ratings = (s: DeckState, id: string) => JSON.stringify((s.questions[id]?.results as LikertResults | undefined)?.counts);
 
 async function main() {
   const t0 = Date.now();
@@ -224,11 +225,51 @@ async function main() {
   const pw = phoneCloud.live?.results as WordcloudResults;
   check(pw.words.length === 4 && pw.hidden === undefined, "phones get results without hidden words");
 
+  step = "likert";
+  const likert = {
+    type: "likert",
+    id: "fb",
+    prompt: "Feedback",
+    statements: ["Pace was right", "Examples helped"],
+    labels: ["Disagree", "Neutral", "Agree"],
+    numeric: false,
+    anchors: null,
+  } as const;
+  deck.send({ t: "open", question: { ...likert, results: "live" } as never });
+  for (const p of [a, b, c]) {
+    const s = await p.audience((s) => s.live?.question.id === "fb" && s.live.status === "open", "likert is live");
+    check(JSON.stringify(s.live?.question) === JSON.stringify(likert), "likert definition should reach phones exactly");
+  }
+  a.send({ t: "rate", id: "fb", statement: 0, choice: 2 });
+  await a.you((m) => JSON.stringify(m.ratings.fb) === "[2,null]", "a's first rating");
+  a.send({ t: "rate", id: "fb", statement: 1, choice: 0 });
+  b.send({ t: "rate", id: "fb", statement: 0, choice: 2 });
+  await a.you((m) => JSON.stringify(m.ratings.fb) === "[2,0]", "a's second rating");
+  a.send({ t: "rate", id: "fb", statement: 0, choice: 1 }); // last rating wins
+  await a.you((m) => JSON.stringify(m.ratings.fb) === "[1,0]", "a's changed rating");
+  await deck.deck((s) => ratings(s, "fb") === "[[0,1,1],[1,0,0]]" && s.questions.fb?.results.voters === 2, "likert counts");
+  c.send({ t: "rate", id: "fb", statement: 2, choice: 0 });
+  await c.error("bad-message");
+  c.send({ t: "rate", id: "fb", statement: 0, choice: 3 });
+  await c.error("bad-message");
+  c.send({ t: "vote", id: "fb", choice: 0 });
+  await c.error("bad-message");
+  deck.send({ t: "reveal", id: "fb", correct: [0] });
+  await deck.error("bad-message");
+  deck.send({ t: "hide", id: "fb", text: "x", hidden: true });
+  await deck.error("bad-message");
+  deck.send({ t: "close", id: "fb" });
+  const closedLikert = await b.audience((s) => s.live?.question.id === "fb" && s.live.status === "closed", "likert closed");
+  check(JSON.stringify(closedLikert.live?.results) === '{"type":"likert","counts":[[0,1,1],[1,0,0]],"voters":2}', "closed likert shows results");
+  b.send({ t: "rate", id: "fb", statement: 1, choice: 2 });
+  await b.error("closed");
+
   step = "export";
   const exp = await fetch(exportUrl, { headers: { Authorization: `Bearer ${key}` } });
   check(exp.status === 200, `export with key returned ${exp.status}`);
   const body = (await exp.json()) as { session: string; questions: DeckState["questions"] };
-  check(body.session === session && body.questions.lang && body.questions.mood, "export is missing questions");
+  check(body.session === session && body.questions.lang && body.questions.mood && body.questions.fb, "export is missing questions");
+  check(ratings(body as DeckState, "fb") === "[[0,1,1],[1,0,0]]", "export is missing likert ratings");
   check(JSON.stringify(words(body as DeckState, "mood")?.hidden) === '["Big Data"]', "export is missing hidden words");
 
   for (const cl of [deck, viewer, a, b, c, early]) cl.close();
