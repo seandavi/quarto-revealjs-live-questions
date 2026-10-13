@@ -1,4 +1,4 @@
-/*! live-poll | MIT | https://github.com/seandavi/quarto-live-poll | includes qrcode-generator, (c) 2009 Kazuhiko Arase, MIT: see THIRD_PARTY_NOTICES.md */
+/*! live-questions | MIT | https://github.com/seandavi/quarto-revealjs-live-questions | includes qrcode-generator, (c) 2009 Kazuhiko Arase, MIT: see THIRD_PARTY_NOTICES.md */
 (() => {
 
   // src/shared/protocol.ts
@@ -24,7 +24,7 @@
 
   // src/deck/config.ts
   function readConfig(doc = document) {
-    const el = doc.getElementById("lp-config");
+    const el = doc.getElementById("lq-config");
     if (!el?.textContent)
       return null;
     try {
@@ -37,7 +37,7 @@
         qr: raw.qr !== false
       };
     } catch (err) {
-      console.warn("[live-poll] could not parse #lp-config", err);
+      console.warn("[live-questions] could not parse #lq-config", err);
       return null;
     }
   }
@@ -46,7 +46,7 @@
     if (value === null || value === "")
       return null;
     if (!LIMITS.sessionPattern.test(value)) {
-      console.warn(`[live-poll] ignoring ?session=${value}: it must match ${LIMITS.sessionPattern}`);
+      console.warn(`[live-questions] ignoring ?session=${value}: it must match ${LIMITS.sessionPattern}`);
       return null;
     }
     return value;
@@ -64,7 +64,7 @@
     return /print-pdf/i.test(search);
   }
   function readQuestion(el) {
-    const raw = el.dataset.lp;
+    const raw = el.dataset.lq;
     if (!raw)
       return null;
     try {
@@ -73,7 +73,7 @@
         return null;
       return q;
     } catch (err) {
-      console.warn(`[live-poll] bad data-lp on #${el.id}`, err);
+      console.warn(`[live-questions] bad data-lq on #${el.id}`, err);
       return null;
     }
   }
@@ -150,7 +150,7 @@
       try {
         ws = new WebSocket(this.url);
       } catch (err) {
-        console.warn("[live-poll] cannot open socket", err);
+        console.warn("[live-questions] cannot open socket", err);
         this.scheduleRetry();
         return;
       }
@@ -180,7 +180,7 @@
           this.handlers.status("online");
         }
         if (msg.t === "error" && msg.code === "version") {
-          console.error(`[live-poll] server speaks a different protocol version: ${msg.message}`);
+          console.error(`[live-questions] server speaks a different protocol version: ${msg.message}`);
           this.stop();
         }
         this.handlers.message(msg);
@@ -240,7 +240,7 @@
     return el;
   }
   function button(text, onClick, cls = "") {
-    const b = h("button", { class: `lp-btn ${cls}`.trim(), text, attrs: { type: "button" } });
+    const b = h("button", { class: `lq-btn ${cls}`.trim(), text, attrs: { type: "button" } });
     b.addEventListener("click", (e) => {
       e.stopPropagation();
       onClick();
@@ -1882,7 +1882,7 @@
   class QrOverlay {
     el;
     constructor(parent, url, short) {
-      this.el = h("div", { class: "lp-overlay", attrs: { role: "dialog", "aria-label": "Scan to join" } }, h("div", { class: "lp-overlay-card" }, h("div", { class: "lp-overlay-title", text: "Scan to join" }), h("div", { class: "lp-overlay-qr" }, qrSvg(url, `QR code for ${short}`)), h("div", { class: "lp-overlay-url", text: short })));
+      this.el = h("div", { class: "lq-overlay", attrs: { role: "dialog", "aria-label": "Scan to join" } }, h("div", { class: "lq-overlay-card" }, h("div", { class: "lq-overlay-title", text: "Scan to join" }), h("div", { class: "lq-overlay-qr" }, qrSvg(url, `QR code for ${short}`)), h("div", { class: "lq-overlay-url", text: short })));
       this.el.hidden = true;
       this.el.addEventListener("click", () => this.hide());
       parent.append(this.el);
@@ -1912,14 +1912,14 @@
     el;
     timer;
     constructor(parent) {
-      this.el = h("div", { class: "lp-toast", attrs: { role: "status", "aria-live": "polite" } });
+      this.el = h("div", { class: "lq-toast", attrs: { role: "status", "aria-live": "polite" } });
       parent.append(this.el);
     }
     show(text, ms = 2600) {
       this.el.textContent = text;
-      this.el.classList.add("lp-show");
+      this.el.classList.add("lq-show");
       clearTimeout(this.timer);
-      this.timer = setTimeout(() => this.el.classList.remove("lp-show"), ms);
+      this.timer = setTimeout(() => this.el.classList.remove("lq-show"), ms);
     }
   }
 
@@ -1929,7 +1929,7 @@
     try {
       origin = new URL(server).origin;
     } catch {}
-    return `lp:key:${origin}`;
+    return `lq:key:${origin}`;
   };
   function storage() {
     try {
@@ -1994,15 +1994,15 @@
     rows;
     constructor(options, items) {
       this.rows = options.map((text, i) => {
-        const fill = h("div", { class: "lp-fill" });
-        const pct = h("span", { class: "lp-pct", text: "0%" });
-        const count = h("span", { class: "lp-n", text: "0" });
-        const label = h("div", { class: "lp-label" });
+        const fill = h("div", { class: "lq-fill" });
+        const pct = h("span", { class: "lq-pct", text: "0%" });
+        const count = h("span", { class: "lq-n", text: "0" });
+        const label = h("div", { class: "lq-label" });
         label.append(...labelNodes(items[i], text));
-        const el = h("div", { class: "lp-row" }, label, h("div", { class: "lp-track" }, fill), h("div", { class: "lp-stat" }, count, pct));
+        const el = h("div", { class: "lq-row" }, label, h("div", { class: "lq-track" }, fill), h("div", { class: "lq-stat" }, count, pct));
         return { el, fill, pct, count };
       });
-      this.el = h("div", { class: "lp-bars" }, ...this.rows.map((r) => r.el));
+      this.el = h("div", { class: "lq-bars" }, ...this.rows.map((r) => r.el));
     }
     update(results, correct) {
       const counts = this.rows.map((_, i) => results?.counts[i] ?? 0);
@@ -2014,11 +2014,11 @@
         row.fill.style.width = max > 0 ? `${(n / max * 100).toFixed(2)}%` : "0%";
         row.pct.textContent = `${Math.round(share * 100)}%`;
         row.count.textContent = String(n);
-        row.el.classList.toggle("lp-lead", max > 0 && n === max);
-        row.el.classList.toggle("lp-correct", !!correct && correct.includes(i));
-        row.el.classList.toggle("lp-dim", !!correct && !correct.includes(i));
+        row.el.classList.toggle("lq-lead", max > 0 && n === max);
+        row.el.classList.toggle("lq-correct", !!correct && correct.includes(i));
+        row.el.classList.toggle("lq-dim", !!correct && !correct.includes(i));
       });
-      this.el.classList.toggle("lp-revealed", !!correct);
+      this.el.classList.toggle("lq-revealed", !!correct);
     }
   }
 
@@ -2095,31 +2095,31 @@
       this.values = q.labels.map(Number);
       const showLabels = !(q.statements.length === 1 && q.statements[0] === q.prompt);
       const label = (i) => {
-        const el = h("div", { class: "lp-lk-label" });
+        const el = h("div", { class: "lq-lk-label" });
         el.append(...labelNodes(items[i], q.statements[i] ?? ""));
         return showLabels ? el : null;
       };
-      const rows = h("div", { class: "lp-lk-rows" });
+      const rows = h("div", { class: "lq-lk-rows" });
       if (!q.numeric) {
         const palette = tones(n);
         for (let s = 0;s < q.statements.length; s++) {
           const segs = [];
           const pcts = [];
           for (let p = 0;p < n; p++) {
-            const pct = h("span", { class: "lp-lk-pct" });
+            const pct = h("span", { class: "lq-lk-pct" });
             const seg = h("div", {
-              class: "lp-lk-seg",
+              class: "lq-lk-seg",
               attrs: { "data-side": palette[p].side, "data-step": String(palette[p].step), title: q.labels[p] }
             }, pct);
             segs.push(seg);
             pcts.push(pct);
           }
-          const neg = h("span", { class: "lp-lk-total lp-lk-neg" });
-          const pos = h("span", { class: "lp-lk-total lp-lk-pos" });
-          const count = h("span", { class: "lp-lk-n" });
-          const axis = h("div", { class: "lp-lk-axis" });
+          const neg = h("span", { class: "lq-lk-total lq-lk-neg" });
+          const pos = h("span", { class: "lq-lk-total lq-lk-pos" });
+          const count = h("span", { class: "lq-lk-n" });
+          const axis = h("div", { class: "lq-lk-axis" });
           this.axes.push(axis);
-          rows.append(h("div", { class: "lp-lk-row" }, h("div", { class: "lp-lk-head" }, label(s), count), h("div", { class: "lp-lk-line" }, neg, h("div", { class: "lp-lk-track" }, axis, ...segs), pos)));
+          rows.append(h("div", { class: "lq-lk-row" }, h("div", { class: "lq-lk-head" }, label(s), count), h("div", { class: "lq-lk-line" }, neg, h("div", { class: "lq-lk-track" }, axis, ...segs), pos)));
           this.diverging.push({ segs, pcts, neg, pos, n: count });
         }
       } else {
@@ -2127,35 +2127,35 @@
           const bars = [];
           const counts = [];
           const cols = q.labels.map(() => {
-            const c = h("span", { class: "lp-hist-n" });
-            const bar = h("div", { class: "lp-hist-bar" }, c);
+            const c = h("span", { class: "lq-hist-n" });
+            const bar = h("div", { class: "lq-hist-bar" }, c);
             bars.push(bar);
             counts.push(c);
-            return h("div", { class: "lp-hist-col" }, bar);
+            return h("div", { class: "lq-hist-col" }, bar);
           });
-          const mean = h("div", { class: "lp-hist-mean", attrs: { "aria-hidden": "true" } });
-          const axis = h("div", { class: "lp-hist-axis" }, ...q.labels.map((l) => h("span", { text: l })));
-          const stats = h("span", { class: "lp-lk-stats" });
-          const count = h("span", { class: "lp-lk-n" });
-          rows.append(h("div", { class: "lp-lk-row" }, h("div", { class: "lp-lk-head" }, label(s), h("span", { class: "lp-lk-meta" }, stats, count)), h("div", { class: "lp-hist" }, ...cols, mean), axis));
+          const mean = h("div", { class: "lq-hist-mean", attrs: { "aria-hidden": "true" } });
+          const axis = h("div", { class: "lq-hist-axis" }, ...q.labels.map((l) => h("span", { text: l })));
+          const stats = h("span", { class: "lq-lk-stats" });
+          const count = h("span", { class: "lq-lk-n" });
+          rows.append(h("div", { class: "lq-lk-row" }, h("div", { class: "lq-lk-head" }, label(s), h("span", { class: "lq-lk-meta" }, stats, count)), h("div", { class: "lq-hist" }, ...cols, mean), axis));
           this.hist.push({ bars, counts, mean, stats, n: count });
         }
       }
       this.el = h("div", {
-        class: `lp-likert ${q.numeric ? "lp-lk-numeric" : "lp-lk-labeled"}${n <= 3 ? " lp-lk-short" : ""}`,
+        class: `lq-likert ${q.numeric ? "lq-lk-numeric" : "lq-lk-labeled"}${n <= 3 ? " lq-lk-short" : ""}`,
         attrs: { "data-statements": String(q.statements.length) }
       }, this.legend(), rows);
-      this.el.style.setProperty("--lp-points", String(n));
+      this.el.style.setProperty("--lq-points", String(n));
     }
     legend() {
       const q = this.q;
       if (q.numeric) {
-        const end = (value, text) => text ? h("span", { class: "lp-lk-anchor" }, h("b", { text: value }), ` ${text}`) : null;
+        const end = (value, text) => text ? h("span", { class: "lq-lk-anchor" }, h("b", { text: value }), ` ${text}`) : null;
         const anchored = !!(q.anchors?.[0] || q.anchors?.[1]);
-        return h("div", { class: "lp-lk-legend lp-lk-anchors" }, end(q.labels[0], q.anchors?.[0]), anchored ? h("span", { class: "lp-lk-dash", attrs: { "aria-hidden": "true" } }) : null, end(q.labels[q.labels.length - 1], q.anchors?.[1]), h("span", { class: "lp-lk-key lp-lk-mean-key" }, h("i", { class: "lp-lk-mean-icon" }), "mean"));
+        return h("div", { class: "lq-lk-legend lq-lk-anchors" }, end(q.labels[0], q.anchors?.[0]), anchored ? h("span", { class: "lq-lk-dash", attrs: { "aria-hidden": "true" } }) : null, end(q.labels[q.labels.length - 1], q.anchors?.[1]), h("span", { class: "lq-lk-key lq-lk-mean-key" }, h("i", { class: "lq-lk-mean-icon" }), "mean"));
       }
       const palette = tones(q.labels.length);
-      return h("div", { class: "lp-lk-legend" }, ...q.labels.map((l, i) => h("span", { class: "lp-lk-key" }, h("i", { class: "lp-lk-swatch", attrs: { "data-side": palette[i].side, "data-step": String(palette[i].step) } }), l)));
+      return h("div", { class: "lq-lk-legend" }, ...q.labels.map((l, i) => h("span", { class: "lq-lk-key" }, h("i", { class: "lq-lk-swatch", attrs: { "data-side": palette[i].side, "data-step": String(palette[i].step) } }), l)));
     }
     update(results) {
       const counts = this.q.statements.map((_, s) => this.q.labels.map((__, p) => results?.counts[s]?.[p] ?? 0));
@@ -2177,7 +2177,7 @@
           const w = b.width[p] ?? 0;
           seg.style.left = `${at(b.start[p] ?? 0).toFixed(3)}%`;
           seg.style.width = `${(w / span * 100).toFixed(3)}%`;
-          seg.classList.toggle("lp-lk-zero", w === 0);
+          seg.classList.toggle("lq-lk-zero", w === 0);
           row.pcts[p].textContent = w > 0 ? pctText(w) : "";
         });
         row.neg.textContent = b.total > 0 ? pctText(b.neg) : "";
@@ -2192,7 +2192,7 @@
         const row = this.hist[s];
         c.forEach((count, p) => {
           row.bars[p].style.height = max > 0 ? `${(count / max * 100).toFixed(2)}%` : "0%";
-          row.bars[p].classList.toggle("lp-hist-empty", count === 0);
+          row.bars[p].classList.toggle("lq-hist-empty", count === 0);
           row.counts[p].textContent = count > 0 ? String(count) : "";
         });
         const sum = summary(c, this.values);
@@ -2332,16 +2332,16 @@
     moderated = false;
     constructor(onHide) {
       this.onHide = onHide;
-      this.area = h("div", { class: "lp-cloud-area" });
-      this.tray = h("div", { class: "lp-tray" });
+      this.area = h("div", { class: "lq-cloud-area" });
+      this.tray = h("div", { class: "lq-tray" });
       this.tray.hidden = true;
-      this.el = h("div", { class: "lp-cloud" }, this.area, this.tray);
+      this.el = h("div", { class: "lq-cloud" }, this.area, this.tray);
     }
     setModerated(on) {
       if (on === this.moderated)
         return;
       this.moderated = on;
-      this.el.classList.toggle("lp-moderated", on);
+      this.el.classList.toggle("lq-moderated", on);
       for (const span of this.spans.values())
         this.decorate(span);
       this.renderTray();
@@ -2388,8 +2388,8 @@
         span.style.fontSize = `${p.size.toFixed(1)}px`;
         span.style.transform = `translate(-50%, -50%) translate(${p.x.toFixed(1)}px, ${p.y.toFixed(1)}px)`;
         if (isNew) {
-          span.classList.add("lp-enter");
-          requestAnimationFrame(() => requestAnimationFrame(() => span.classList.remove("lp-enter")));
+          span.classList.add("lq-enter");
+          requestAnimationFrame(() => requestAnimationFrame(() => span.classList.remove("lq-enter")));
         }
       });
       for (const [key, span] of this.spans) {
@@ -2398,10 +2398,10 @@
         span.remove();
         this.spans.delete(key);
       }
-      this.el.classList.toggle("lp-empty", placed.length === 0);
+      this.el.classList.toggle("lq-empty", placed.length === 0);
     }
     createSpan() {
-      const span = h("span", { class: "lp-word" });
+      const span = h("span", { class: "lq-word" });
       const hide = (e) => {
         if (!this.moderated)
           return;
@@ -2436,8 +2436,8 @@
         return;
       }
       this.tray.hidden = false;
-      this.tray.replaceChildren(h("span", { class: "lp-tray-label", text: "Hidden" }), ...this.hidden.map((text) => {
-        const b = button(text, () => this.onHide(text, false), "lp-chip");
+      this.tray.replaceChildren(h("span", { class: "lq-tray-label", text: "Hidden" }), ...this.hidden.map((text) => {
+        const b = button(text, () => this.onHide(text, false), "lq-chip");
         b.title = `Show “${text}” again`;
         return b;
       }));
@@ -2471,10 +2471,10 @@
       this.el = el;
       this.q = q;
       this.ctx = ctx;
-      el.classList.add("lp-active");
-      const text = el.querySelector(":scope > .lp-text");
+      el.classList.add("lq-active");
+      const text = el.querySelector(":scope > .lq-text");
       const list = el.querySelector(":scope > ul, :scope > ol");
-      list?.classList.add("lp-source");
+      list?.classList.add("lq-source");
       if (q.type === "poll") {
         this.chart = new BarChart(q.options, list ? Array.from(list.children) : []);
       } else if (q.type === "likert") {
@@ -2482,23 +2482,23 @@
       } else {
         this.chart = new WordCloud((t, hidden) => ctx.send({ t: "hide", id: q.id, text: t, hidden }));
       }
-      const veil = h("div", { class: "lp-veil", text: "Results hidden" });
+      const veil = h("div", { class: "lq-veil", text: "Results hidden" });
       if (!(this.chart instanceof WordCloud))
         this.chart.el.append(veil);
-      this.main = h("div", { class: "lp-main" }, text, this.chart.el, this.chart instanceof WordCloud ? veil : null);
-      this.pill = h("span", { class: "lp-pill", attrs: { "data-state": "offline" }, text: "OFFLINE" });
-      this.count = h("span", { class: "lp-count-n", text: "0" });
-      this.countLabel = h("span", { class: "lp-count-label", text: "responses" });
-      this.joined = h("span", { class: "lp-joined" });
+      this.main = h("div", { class: "lq-main" }, text, this.chart.el, this.chart instanceof WordCloud ? veil : null);
+      this.pill = h("span", { class: "lq-pill", attrs: { "data-state": "offline" }, text: "OFFLINE" });
+      this.count = h("span", { class: "lq-count-n", text: "0" });
+      this.countLabel = h("span", { class: "lq-count-label", text: "responses" });
+      this.joined = h("span", { class: "lq-joined" });
       this.toggleBtn = button("Close voting", () => this.toggleVoting());
-      this.controls = h("div", { class: "lp-controls", attrs: { role: "toolbar", "aria-label": "Question controls" } }, this.toggleBtn, button("Reset", () => this.reset(), "lp-danger"));
-      const side = h("div", { class: "lp-side" }, ctx.qr ? h("div", { class: "lp-qr" }, qrSvg(ctx.audienceUrl, `QR code for ${ctx.shortUrl}`)) : null, ctx.qr ? h("div", { class: "lp-url", text: ctx.shortUrl }) : null, h("div", { class: "lp-count" }, this.count, this.countLabel), h("div", { class: "lp-meta" }, this.pill, this.joined), this.controls);
-      el.append(h("div", { class: "lp-body" }, this.main, side));
+      this.controls = h("div", { class: "lq-controls", attrs: { role: "toolbar", "aria-label": "Question controls" } }, this.toggleBtn, button("Reset", () => this.reset(), "lq-danger"));
+      const side = h("div", { class: "lq-side" }, ctx.qr ? h("div", { class: "lq-qr" }, qrSvg(ctx.audienceUrl, `QR code for ${ctx.shortUrl}`)) : null, ctx.qr ? h("div", { class: "lq-url", text: ctx.shortUrl }) : null, h("div", { class: "lq-count" }, this.count, this.countLabel), h("div", { class: "lq-meta" }, this.pill, this.joined), this.controls);
+      el.append(h("div", { class: "lq-body" }, this.main, side));
       this.applyResultsVisibility();
     }
     setPresenter(on) {
       this.presenter = on;
-      this.el.classList.toggle("lp-presenter", on);
+      this.el.classList.toggle("lq-presenter", on);
       if (this.chart instanceof WordCloud)
         this.chart.setModerated(on);
     }
@@ -2545,14 +2545,14 @@
     fitBars() {
       const bars = this.chart.el;
       let scale = 1;
-      bars.style.setProperty("--lp-fit", "1");
+      bars.style.setProperty("--lq-fit", "1");
       while (scale > 0.6 && bars.scrollHeight > this.main.clientHeight - this.textHeight() + 1) {
         scale -= 0.05;
-        bars.style.setProperty("--lp-fit", scale.toFixed(2));
+        bars.style.setProperty("--lq-fit", scale.toFixed(2));
       }
     }
     textHeight() {
-      const text = this.main.querySelector(":scope > .lp-text");
+      const text = this.main.querySelector(":scope > .lq-text");
       return text ? text.offsetHeight : 0;
     }
     resultsVisible() {
@@ -2562,7 +2562,7 @@
     }
     applyResultsVisibility() {
       const visible = this.resultsVisible();
-      this.el.classList.toggle("lp-results-hidden", !visible);
+      this.el.classList.toggle("lq-results-hidden", !visible);
     }
     toggleVoting() {
       if (this.el.dataset.status === "live")
@@ -2577,7 +2577,7 @@
     }
   }
 
-  // src/deck/live-poll.ts
+  // src/deck/live-questions.ts
   var KEY_Q = 81;
   var KEY_A = 65;
   var KEY_T = 84;
@@ -2591,7 +2591,7 @@
     return JSON.stringify(a) === JSON.stringify(b);
   }
 
-  class LivePoll {
+  class LiveQuestions {
     deck;
     mode = "static";
     config;
@@ -2611,19 +2611,19 @@
     }
     init() {
       const config = readConfig();
-      const elements = Array.from(document.querySelectorAll(".lp-question[data-lp]"));
+      const elements = Array.from(document.querySelectorAll(".lq-question[data-lq]"));
       const embedded = isEmbedded();
       takeKeyFromUrl(config?.server, !embedded);
       const print = isPrint(window.location.search) || this.deck.isPrintView();
       if (!config || !config.server || print) {
         for (const el of elements)
-          el.classList.add("lp-static");
-        document.documentElement.dataset.lpMode = "static";
+          el.classList.add("lq-static");
+        document.documentElement.dataset.lqMode = "static";
         return;
       }
       this.config = config;
       this.mode = embedded ? "embedded" : "viewer";
-      document.documentElement.dataset.lpMode = this.mode;
+      document.documentElement.dataset.lqMode = this.mode;
       document.documentElement.dataset.lpTone = themeTone(this.deck.getRevealElement());
       const server = config.server;
       const session = sessionOverride(window.location.search) ?? config.session;
@@ -2645,7 +2645,7 @@
         if (!q)
           continue;
         if (seen.has(q.id))
-          console.warn(`[live-poll] duplicate question id "${q.id}"`);
+          console.warn(`[live-questions] duplicate question id "${q.id}"`);
         seen.add(q.id);
         this.views.push(new QuestionView(el, q, ctx));
       }
@@ -2675,7 +2675,7 @@
         return false;
       const sent = this.conn?.send(msg) ?? false;
       if (!sent)
-        this.toast?.show("Not connected to the live poll server");
+        this.toast?.show("Not connected to the Live Questions server");
       return sent;
     }
     onLink(status) {
@@ -2709,9 +2709,9 @@
           }
           break;
         case "error":
-          console.warn(`[live-poll] server error ${msg.code}: ${msg.message}`);
+          console.warn(`[live-questions] server error ${msg.code}: ${msg.message}`);
           if (this.presenter)
-            this.toast?.show(`Live poll: ${msg.message || msg.code}`);
+            this.toast?.show(`Live Questions: ${msg.message || msg.code}`);
           break;
         default:
           break;
@@ -2720,7 +2720,7 @@
     setPresenter(on) {
       this.presenter = on;
       const mode = on ? "presenter" : this.mode === "embedded" ? "embedded" : "viewer";
-      document.documentElement.dataset.lpMode = mode;
+      document.documentElement.dataset.lqMode = mode;
       for (const v of this.views)
         v.setPresenter(on);
     }
@@ -2785,20 +2785,20 @@
       }
     }
     registerKeys() {
-      this.deck.addKeyBinding({ keyCode: KEY_Q, key: "Q", description: "Live poll: full-screen QR code" }, () => this.overlay?.toggle());
-      this.deck.addKeyBinding({ keyCode: KEY_A, key: "A", description: "Live poll: reveal the correct answer" }, () => this.revealAnswer());
-      this.deck.addKeyBinding({ keyCode: KEY_T, key: "T", description: "Live poll: show or hide results" }, () => {
+      this.deck.addKeyBinding({ keyCode: KEY_Q, key: "Q", description: "Live Questions: full-screen QR code" }, () => this.overlay?.toggle());
+      this.deck.addKeyBinding({ keyCode: KEY_A, key: "A", description: "Live Questions: reveal the correct answer" }, () => this.revealAnswer());
+      this.deck.addKeyBinding({ keyCode: KEY_T, key: "T", description: "Live Questions: show or hide results" }, () => {
         const view = this.currentView();
         if (view)
           view.toggleResults();
         else
-          this.toast?.show("No live poll on this slide");
+          this.toast?.show("No live question on this slide");
       });
     }
     revealAnswer() {
       const view = this.currentView();
       if (!view)
-        return this.toast?.show("No live poll on this slide");
+        return this.toast?.show("No live question on this slide");
       if (!this.presenter)
         return this.toast?.show("Only the presenter can reveal answers");
       const q = view.q;
@@ -2835,17 +2835,17 @@
   }
 
   // src/deck/plugin.ts
-  function RevealLivePoll() {
+  function RevealLiveQuestions() {
     return {
-      id: "RevealLivePoll",
+      id: "RevealLiveQuestions",
       init(deck) {
         try {
-          new LivePoll(deck).init();
+          new LiveQuestions(deck).init();
         } catch (err) {
-          console.error("[live-poll] failed to start", err);
+          console.error("[live-questions] failed to start", err);
         }
       }
     };
   }
-  window.RevealLivePoll = RevealLivePoll;
+  window.RevealLiveQuestions = RevealLiveQuestions;
 })();

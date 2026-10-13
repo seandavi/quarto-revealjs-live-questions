@@ -9,13 +9,13 @@ export class QrOverlay {
   constructor(parent: HTMLElement, url: string, short: string) {
     this.el = h(
       "div",
-      { class: "lp-overlay", attrs: { role: "dialog", "aria-label": "Scan to join" } },
+      { class: "lq-overlay", attrs: { role: "dialog", "aria-label": "Scan to join" } },
       h(
         "div",
-        { class: "lp-overlay-card" },
-        h("div", { class: "lp-overlay-title", text: "Scan to join" }),
-        h("div", { class: "lp-overlay-qr" }, qrSvg(url, `QR code for ${short}`)),
-        h("div", { class: "lp-overlay-url", text: short }),
+        { class: "lq-overlay-card" },
+        h("div", { class: "lq-overlay-title", text: "Scan to join" }),
+        h("div", { class: "lq-overlay-qr" }, qrSvg(url, `QR code for ${short}`)),
+        h("div", { class: "lq-overlay-url", text: short }),
       ),
     );
     this.el.hidden = true;
@@ -54,14 +54,14 @@ export class Toast {
   private timer: ReturnType<typeof setTimeout> | undefined;
 
   constructor(parent: HTMLElement) {
-    this.el = h("div", { class: "lp-toast", attrs: { role: "status", "aria-live": "polite" } });
+    this.el = h("div", { class: "lq-toast", attrs: { role: "status", "aria-live": "polite" } });
     parent.append(this.el);
   }
 
   show(text: string, ms = 2600): void {
     this.el.textContent = text;
-    this.el.classList.add("lp-show");
+    this.el.classList.add("lq-show");
     clearTimeout(this.timer);
-    this.timer = setTimeout(() => this.el.classList.remove("lp-show"), ms);
+    this.timer = setTimeout(() => this.el.classList.remove("lq-show"), ms);
   }
 }

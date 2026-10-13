@@ -62,7 +62,7 @@ export class Connection {
     try {
       ws = new WebSocket(this.url);
     } catch (err) {
-      console.warn("[live-poll] cannot open socket", err);
+      console.warn("[live-questions] cannot open socket", err);
       this.scheduleRetry();
       return;
     }
@@ -92,7 +92,7 @@ export class Connection {
         this.handlers.status("online");
       }
       if (msg.t === "error" && msg.code === "version") {
-        console.error(`[live-poll] server speaks a different protocol version: ${msg.message}`);
+        console.error(`[live-questions] server speaks a different protocol version: ${msg.message}`);
         this.stop();
       }
       this.handlers.message(msg);

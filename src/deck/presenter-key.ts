@@ -11,7 +11,7 @@ const storageKey = (server: string) => {
   } catch {
     // keep the raw value
   }
-  return `lp:key:${origin}`;
+  return `lq:key:${origin}`;
 };
 
 function storage(): Storage | null {

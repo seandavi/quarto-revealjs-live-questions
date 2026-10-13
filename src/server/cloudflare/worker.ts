@@ -17,7 +17,7 @@ export interface Env {
 }
 
 /** Header carrying the session name from the Worker to its Durable Object. */
-const SESSION_HEADER = "x-live-poll-session";
+const SESSION_HEADER = "x-live-questions-session";
 
 /** Per-socket state kept across hibernation via `serializeAttachment`. */
 interface Attachment {
@@ -73,7 +73,7 @@ export class SessionRoom extends DurableObject<Env> implements HubHost<WebSocket
     if (pathname !== "/ws" || request.headers.get("upgrade")?.toLowerCase() !== "websocket") {
       return new Response("not found", { status: 404 });
     }
-    if (!this.presenterKey && !this.hub) console.warn("live-poll: PRESENTER_KEY is not set, so nobody can present.");
+    if (!this.presenterKey && !this.hub) console.warn("live-questions: PRESENTER_KEY is not set, so nobody can present.");
     this.hubFor(session);
     const { 0: client, 1: server } = new WebSocketPair();
     // Role and voter arrive later in `hello`, and tags are fixed at accept
@@ -144,7 +144,7 @@ export class SessionRoom extends DurableObject<Env> implements HubHost<WebSocket
   persist(data: RoomData): void {
     this.stored = data;
     this.ctx.storage.put("room", data).catch((err: unknown) => {
-      console.error("live-poll: failed to save room:", err);
+      console.error("live-questions: failed to save room:", err);
     });
   }
   schedule(fn: () => void, ms: number): void {

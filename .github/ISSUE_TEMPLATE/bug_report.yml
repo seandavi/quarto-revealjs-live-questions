@@ -40,7 +40,7 @@ body:
     id: version
     attributes:
       label: Extension version
-      description: "`version:` in `_extensions/live-poll/_extension.yml` (or the server's git commit)"
+      description: "`version:` in `_extensions/live-questions/_extension.yml` (or the server's git commit)"
     validations:
       required: true
   - type: input
@@ -57,5 +57,5 @@ body:
     id: logs
     attributes:
       label: Console output or server logs
-      description: Browser console lines starting with `[live-poll]`, render warnings, or server log lines.
+      description: Browser console lines starting with `[live-questions]`, render warnings, or server log lines.
       render: text

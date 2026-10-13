@@ -25,21 +25,21 @@ export class BarChart {
 
   constructor(options: string[], items: Element[]) {
     this.rows = options.map((text, i) => {
-      const fill = h("div", { class: "lp-fill" });
-      const pct = h("span", { class: "lp-pct", text: "0%" });
-      const count = h("span", { class: "lp-n", text: "0" });
-      const label = h("div", { class: "lp-label" });
+      const fill = h("div", { class: "lq-fill" });
+      const pct = h("span", { class: "lq-pct", text: "0%" });
+      const count = h("span", { class: "lq-n", text: "0" });
+      const label = h("div", { class: "lq-label" });
       label.append(...labelNodes(items[i], text));
       const el = h(
         "div",
-        { class: "lp-row" },
+        { class: "lq-row" },
         label,
-        h("div", { class: "lp-track" }, fill),
-        h("div", { class: "lp-stat" }, count, pct),
+        h("div", { class: "lq-track" }, fill),
+        h("div", { class: "lq-stat" }, count, pct),
       );
       return { el, fill, pct, count };
     });
-    this.el = h("div", { class: "lp-bars" }, ...this.rows.map((r) => r.el));
+    this.el = h("div", { class: "lq-bars" }, ...this.rows.map((r) => r.el));
   }
 
   update(results: PollResults | null, correct: number[] | null): void {
@@ -53,10 +53,10 @@ export class BarChart {
       row.fill.style.width = max > 0 ? `${((n / max) * 100).toFixed(2)}%` : "0%";
       row.pct.textContent = `${Math.round(share * 100)}%`;
       row.count.textContent = String(n);
-      row.el.classList.toggle("lp-lead", max > 0 && n === max);
-      row.el.classList.toggle("lp-correct", !!correct && correct.includes(i));
-      row.el.classList.toggle("lp-dim", !!correct && !correct.includes(i));
+      row.el.classList.toggle("lq-lead", max > 0 && n === max);
+      row.el.classList.toggle("lq-correct", !!correct && correct.includes(i));
+      row.el.classList.toggle("lq-dim", !!correct && !correct.includes(i));
     });
-    this.el.classList.toggle("lp-revealed", !!correct);
+    this.el.classList.toggle("lq-revealed", !!correct);
   }
 }

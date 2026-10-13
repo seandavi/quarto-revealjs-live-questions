@@ -52,10 +52,10 @@ export class QuestionView {
     readonly q: LpQuestion,
     private readonly ctx: ViewContext,
   ) {
-    el.classList.add("lp-active");
-    const text = el.querySelector<HTMLElement>(":scope > .lp-text");
+    el.classList.add("lq-active");
+    const text = el.querySelector<HTMLElement>(":scope > .lq-text");
     const list = el.querySelector<HTMLElement>(":scope > ul, :scope > ol");
-    list?.classList.add("lp-source");
+    list?.classList.add("lq-source");
 
     if (q.type === "poll") {
       this.chart = new BarChart(q.options, list ? Array.from(list.children) : []);
@@ -67,43 +67,43 @@ export class QuestionView {
 
     // Shown while results are hidden: under the options for a poll or likert,
     // centered over the (empty) cloud for a word cloud.
-    const veil = h("div", { class: "lp-veil", text: "Results hidden" });
+    const veil = h("div", { class: "lq-veil", text: "Results hidden" });
     if (!(this.chart instanceof WordCloud)) this.chart.el.append(veil);
-    this.main = h("div", { class: "lp-main" }, text, this.chart.el,
+    this.main = h("div", { class: "lq-main" }, text, this.chart.el,
       this.chart instanceof WordCloud ? veil : null);
 
-    this.pill = h("span", { class: "lp-pill", attrs: { "data-state": "offline" }, text: "OFFLINE" });
-    this.count = h("span", { class: "lp-count-n", text: "0" });
-    this.countLabel = h("span", { class: "lp-count-label", text: "responses" });
-    this.joined = h("span", { class: "lp-joined" });
+    this.pill = h("span", { class: "lq-pill", attrs: { "data-state": "offline" }, text: "OFFLINE" });
+    this.count = h("span", { class: "lq-count-n", text: "0" });
+    this.countLabel = h("span", { class: "lq-count-label", text: "responses" });
+    this.joined = h("span", { class: "lq-joined" });
 
     this.toggleBtn = button("Close voting", () => this.toggleVoting());
     this.controls = h(
       "div",
-      { class: "lp-controls", attrs: { role: "toolbar", "aria-label": "Question controls" } },
+      { class: "lq-controls", attrs: { role: "toolbar", "aria-label": "Question controls" } },
       this.toggleBtn,
-      button("Reset", () => this.reset(), "lp-danger"),
+      button("Reset", () => this.reset(), "lq-danger"),
     );
 
     const side = h(
       "div",
-      { class: "lp-side" },
+      { class: "lq-side" },
       ctx.qr
-        ? h("div", { class: "lp-qr" }, qrSvg(ctx.audienceUrl, `QR code for ${ctx.shortUrl}`))
+        ? h("div", { class: "lq-qr" }, qrSvg(ctx.audienceUrl, `QR code for ${ctx.shortUrl}`))
         : null,
-      ctx.qr ? h("div", { class: "lp-url", text: ctx.shortUrl }) : null,
-      h("div", { class: "lp-count" }, this.count, this.countLabel),
-      h("div", { class: "lp-meta" }, this.pill, this.joined),
+      ctx.qr ? h("div", { class: "lq-url", text: ctx.shortUrl }) : null,
+      h("div", { class: "lq-count" }, this.count, this.countLabel),
+      h("div", { class: "lq-meta" }, this.pill, this.joined),
       this.controls,
     );
 
-    el.append(h("div", { class: "lp-body" }, this.main, side));
+    el.append(h("div", { class: "lq-body" }, this.main, side));
     this.applyResultsVisibility();
   }
 
   setPresenter(on: boolean): void {
     this.presenter = on;
-    this.el.classList.toggle("lp-presenter", on);
+    this.el.classList.toggle("lq-presenter", on);
     if (this.chart instanceof WordCloud) this.chart.setModerated(on);
   }
 
@@ -160,15 +160,15 @@ export class QuestionView {
   private fitBars(): void {
     const bars = this.chart.el;
     let scale = 1;
-    bars.style.setProperty("--lp-fit", "1");
+    bars.style.setProperty("--lq-fit", "1");
     while (scale > 0.6 && bars.scrollHeight > this.main.clientHeight - this.textHeight() + 1) {
       scale -= 0.05;
-      bars.style.setProperty("--lp-fit", scale.toFixed(2));
+      bars.style.setProperty("--lq-fit", scale.toFixed(2));
     }
   }
 
   private textHeight(): number {
-    const text = this.main.querySelector<HTMLElement>(":scope > .lp-text");
+    const text = this.main.querySelector<HTMLElement>(":scope > .lq-text");
     return text ? text.offsetHeight : 0;
   }
 
@@ -179,7 +179,7 @@ export class QuestionView {
 
   private applyResultsVisibility(): void {
     const visible = this.resultsVisible();
-    this.el.classList.toggle("lp-results-hidden", !visible);
+    this.el.classList.toggle("lq-results-hidden", !visible);
   }
 
   private toggleVoting(): void {

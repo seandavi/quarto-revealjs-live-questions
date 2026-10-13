@@ -1,17 +1,17 @@
 --[[
-live-poll.lua: turn `.poll`, `.wordcloud` and `.likert` divs into live-poll
+live-questions.lua: turn `.poll`, `.wordcloud` and `.likert` divs into live-questions
 questions.
 
 For revealjs output, each question div becomes
 
-  <div id="ID" class="lp-question lp-poll" data-lp="{...Question, correct, results}">
+  <div id="ID" class="lq-question lq-poll" data-lq="{...Question, correct, results}">
     ...non-list content of the div (kept as-is)...
     <ul>...the original options, task-list markers stripped...</ul>
   </div>
 
-and the resolved `live-poll:` config is written into
-<script type="application/json" id="lp-config">. The deck plugin
-(live-poll.js) does the rest. For any other format the div's list is kept
+and the resolved `live-questions:` config is written into
+<script type="application/json" id="lq-config">. The deck plugin
+(live-questions.js) does the rest. For any other format the div's list is kept
 as a plain list. Limits mirror LIMITS in src/shared/protocol.ts.
 ]]
 
@@ -57,7 +57,7 @@ local last_heading = ""
 local question_count = 0
 
 local function warn(msg)
-  quarto.log.warning("[live-poll] " .. msg)
+  quarto.log.warning("[live-questions] " .. msg)
 end
 
 local function ulen(s)
@@ -105,7 +105,7 @@ local function meta_bool(v, default, key)
   local s = meta_string(v):lower()
   if s == "true" or s == "yes" then return true end
   if s == "false" or s == "no" then return false end
-  warn(("live-poll.%s should be true or false, got %q; using %s"):format(key, s, tostring(default)))
+  warn(("live-questions.%s should be true or false, got %q; using %s"):format(key, s, tostring(default)))
   return default
 end
 
@@ -116,9 +116,9 @@ local function results_mode(v, where)
 end
 
 local function read_config(meta)
-  local m = meta["live-poll"]
+  local m = meta["live-questions"]
   if m ~= nil and type(m) ~= "table" then
-    warn("`live-poll:` should be a map of options")
+    warn("`live-questions:` should be a map of options")
     m = nil
   end
   m = m or {}
@@ -127,7 +127,7 @@ local function read_config(meta)
   if server and server ~= "" then
     server = server:gsub("/+$", "")
     if not server:match("^https?://[^/]+$") then
-      warn(("live-poll.server should be an origin like https://host[:port], got %q"):format(server))
+      warn(("live-questions.server should be an origin like https://host[:port], got %q"):format(server))
     end
     config.server = server
   end
@@ -137,7 +137,7 @@ local function read_config(meta)
     session = default_session()
   elseif not valid_session(session) then
     local fixed = default_session()
-    warn(("live-poll.session %q must match [A-Za-z0-9][A-Za-z0-9_-]{0,63}; using %q"):format(session, fixed))
+    warn(("live-questions.session %q must match [A-Za-z0-9][A-Za-z0-9_-]{0,63}; using %q"):format(session, fixed))
     session = fixed
   end
   config.session = session
@@ -145,7 +145,7 @@ local function read_config(meta)
   config.closeOnLeave = meta_bool(m["close-on-leave"], true, "close-on-leave")
   config.qr = meta_bool(m.qr, true, "qr")
   if m.results ~= nil then
-    config.results = results_mode(meta_string(m.results), "live-poll")
+    config.results = results_mode(meta_string(m.results), "live-questions")
   end
 end
 
@@ -400,17 +400,17 @@ local function transform(div, kind)
 
   local content = pandoc.List()
   if #other > 0 then
-    content:insert(pandoc.Div(other, pandoc.Attr("", { "lp-text" })))
+    content:insert(pandoc.Div(other, pandoc.Attr("", { "lq-text" })))
   end
   if cleaned then content:insert(cleaned) end
-  if scale_note then content:insert(pandoc.Div({ scale_note }, pandoc.Attr("", { "lp-scale-note" }))) end
+  if scale_note then content:insert(pandoc.Div({ scale_note }, pandoc.Attr("", { "lq-scale-note" }))) end
 
-  local classes = { "lp-question", "lp-" .. kind }
+  local classes = { "lq-question", "lq-" .. kind }
   for _, c in ipairs(div.classes) do
     if c ~= kind then table.insert(classes, c) end
   end
   local json = pandoc.json.encode(q)
-  return pandoc.Div(content, pandoc.Attr(q.id, classes, { ["data-lp"] = json }))
+  return pandoc.Div(content, pandoc.Attr(q.id, classes, { ["data-lq"] = json }))
 end
 
 local function config_script()
@@ -423,7 +423,7 @@ local function config_script()
   if config.server then out.server = config.server end
   -- Keep "</script>" inside a JSON string from closing the element.
   local json = pandoc.json.encode(out):gsub("</", "<\\/")
-  return '<script type="application/json" id="lp-config">' .. json .. "</script>"
+  return '<script type="application/json" id="lq-config">' .. json .. "</script>"
 end
 
 return {

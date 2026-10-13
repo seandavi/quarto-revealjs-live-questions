@@ -3,7 +3,7 @@
 ## Supported versions
 
 Security fixes go into the latest release only. Update both the extension in
-your deck (`quarto add seandavi/quarto-live-poll`) and your server when a fix
+your deck (`quarto add seandavi/quarto-revealjs-live-questions`) and your server when a fix
 is released.
 
 | Version | Supported |
@@ -16,7 +16,7 @@ is released.
 Please report vulnerabilities privately through GitHub's private
 vulnerability reporting: open the repository's **Security** tab and choose
 **Report a vulnerability**
-(<https://github.com/seandavi/quarto-live-poll/security/advisories/new>).
+(<https://github.com/seandavi/quarto-revealjs-live-questions/security/advisories/new>).
 Do not open a public issue for a security problem.
 
 Include what you found, how to reproduce it, which runtime it affects

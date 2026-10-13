@@ -13,7 +13,7 @@ First public release. Protocol version 1.
 
 ### Added
 
-- Quarto extension `live-poll`: a Lua filter and a revealjs plugin, enabled
+- Quarto extension `live-questions`: a Lua filter and a revealjs plugin, enabled
   under both `filters` and `revealjs-plugins`.
 - `.poll` divs: a bullet list becomes a live bar chart. Task-list syntax
   (`- [x]`) marks correct answers; `A` reveals them and closes voting.
@@ -24,7 +24,7 @@ First public release. Protocol version 1.
   `agree-7`, numeric ranges such as `0-10` with `low=`/`high=` end labels, or
   custom `labels=`), shown as diverging bars or histograms with mean and
   median; phones rate each statement and can change ratings while open.
-- Per-question `#id`, `prompt=` and `results=` attributes, and `live-poll:`
+- Per-question `#id`, `prompt=` and `results=` attributes, and `live-questions:`
   options `server`, `session`, `close-on-leave`, `results` and `qr`.
 - One audience URL per session that follows the deck, shown as a QR code and
   short URL on question slides, and full screen with `Q`.
@@ -46,4 +46,4 @@ First public release. Protocol version 1.
 - CI: type check, unit tests, bundle freshness check, Node smoke test, Worker
   dry-run bundle, Quarto render and Docker build with a smoke test.
 
-[1.0.0]: https://github.com/seandavi/quarto-live-poll/releases/tag/v1.0.0
+[1.0.0]: https://github.com/seandavi/quarto-revealjs-live-questions/releases/tag/v1.0.0

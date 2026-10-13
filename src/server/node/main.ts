@@ -87,7 +87,7 @@ class Session implements HubHost<Peer> {
         await writeFile(tmp, JSON.stringify(next));
         await rename(tmp, this.file);
       } catch (err) {
-        console.error(`live-poll: failed to save session ${this.name}:`, err);
+        console.error(`live-questions: failed to save session ${this.name}:`, err);
       }
     });
   }
@@ -134,7 +134,7 @@ async function load(name: string): Promise<Session> {
     if (code !== "ENOENT") {
       // Keep the damaged file for inspection rather than overwriting it.
       const aside = `${file}.corrupt-${Date.now()}`;
-      console.error(`live-poll: cannot read ${file} (${String(err)}); moving it to ${aside}`);
+      console.error(`live-questions: cannot read ${file} (${String(err)}); moving it to ${aside}`);
       await rename(file, aside).catch(() => {});
     }
   }
@@ -180,21 +180,21 @@ async function openSocket(c: Parameters<typeof upgradeWebSocket>[0], name: strin
 
 await mkdir(DATA_DIR, { recursive: true });
 if (!PRESENTER_KEY) {
-  console.warn("live-poll: PRESENTER_KEY is not set, so nobody can present. Set it to enable the presenter.");
+  console.warn("live-questions: PRESENTER_KEY is not set, so nobody can present. Set it to enable the presenter.");
 }
 
 // Frames above the deck limit are refused by `ws` itself (close 1009);
 // anything between the role limit and this gets a `bad-message` error.
 const wss = new WebSocketServer({ noServer: true, maxPayload: MAX_BYTES.deck * 2 });
 const server = serve({ fetch: app.fetch, port: PORT, websocket: { server: wss } }, (info) => {
-  console.log(`live-poll: listening on http://localhost:${info.port} (data: ${DATA_DIR})`);
+  console.log(`live-questions: listening on http://localhost:${info.port} (data: ${DATA_DIR})`);
 });
 
 let stopping = false;
 async function shutdown(signal: string): Promise<void> {
   if (stopping) return;
   stopping = true;
-  console.log(`live-poll: ${signal}, saving sessions`);
+  console.log(`live-questions: ${signal}, saving sessions`);
   const all = await Promise.allSettled([...sessions.values()]);
   await Promise.allSettled(all.map((r) => (r.status === "fulfilled" ? r.value.drain() : undefined)));
   for (const client of wss.clients) client.close(1001, "server shutting down");

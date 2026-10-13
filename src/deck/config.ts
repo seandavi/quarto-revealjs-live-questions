@@ -4,7 +4,7 @@ import { LIMITS, type Question } from "../shared/protocol";
 import type { LpConfig, LpQuestion } from "./types";
 
 export function readConfig(doc: Document = document): LpConfig | null {
-  const el = doc.getElementById("lp-config");
+  const el = doc.getElementById("lq-config");
   if (!el?.textContent) return null;
   try {
     const raw = JSON.parse(el.textContent) as Partial<LpConfig>;
@@ -16,7 +16,7 @@ export function readConfig(doc: Document = document): LpConfig | null {
       qr: raw.qr !== false,
     };
   } catch (err) {
-    console.warn("[live-poll] could not parse #lp-config", err);
+    console.warn("[live-questions] could not parse #lq-config", err);
     return null;
   }
 }
@@ -26,7 +26,7 @@ export function sessionOverride(search: string): string | null {
   const value = new URLSearchParams(search).get("session");
   if (value === null || value === "") return null;
   if (!LIMITS.sessionPattern.test(value)) {
-    console.warn(`[live-poll] ignoring ?session=${value}: it must match ${LIMITS.sessionPattern}`);
+    console.warn(`[live-questions] ignoring ?session=${value}: it must match ${LIMITS.sessionPattern}`);
     return null;
   }
   return value;
@@ -47,14 +47,14 @@ export function isPrint(search: string): boolean {
 }
 
 export function readQuestion(el: HTMLElement): LpQuestion | null {
-  const raw = el.dataset.lp;
+  const raw = el.dataset.lq;
   if (!raw) return null;
   try {
     const q = JSON.parse(raw) as LpQuestion;
     if (q.type !== "poll" && q.type !== "wordcloud" && q.type !== "likert") return null;
     return q;
   } catch (err) {
-    console.warn(`[live-poll] bad data-lp on #${el.id}`, err);
+    console.warn(`[live-questions] bad data-lq on #${el.id}`, err);
     return null;
   }
 }

@@ -1,4 +1,4 @@
-# Live Poll: Quarto revealjs extension + Cloudflare / Docker backend
+# Live Questions: Quarto revealjs extension + Cloudflare / Docker backend
 
 default:
     @just --list
@@ -37,11 +37,11 @@ deploy:
 
 # Build the Docker image
 docker-build:
-    docker build -t quarto-live-poll .
+    docker build -t quarto-revealjs-live-questions .
 
 # Run the Docker image (PRESENTER_KEY defaults to "dev")
 docker-run:
-    docker run --rm -p 8787:8787 -e PRESENTER_KEY=${PRESENTER_KEY:-dev} -v live-poll-data:/data quarto-live-poll
+    docker run --rm -p 8787:8787 -e PRESENTER_KEY=${PRESENTER_KEY:-dev} -v live-questions-data:/data quarto-revealjs-live-questions
 
 # Render the example deck
 render: build

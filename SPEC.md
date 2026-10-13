@@ -1,4 +1,4 @@
-# Live Poll: specification
+# Live Questions: specification
 
 Live audience questions for Quarto revealjs decks. Multiple-choice questions
 render as a live bar chart; short-answer questions render as a live word
@@ -17,8 +17,8 @@ covers behavior and the decisions behind it.
 
 ```
 presenter deck (Quarto revealjs)               audience phones
- live-poll.lua   markup -> question JSON        /s/<session>  voting page
- live-poll.js    slide change -> open question,      |
+ live-questions.lua   markup -> question JSON        /s/<session>  voting page
+ live-questions.js    slide change -> open question,      |
                  QR code, live bars / cloud / likert | WebSocket
        | WebSocket                                   |
        +------------> one room per session <---------+
@@ -37,15 +37,15 @@ presenter deck (Quarto revealjs)               audience phones
   Object) and `src/server/node/` (HTTP server, room registry, file
   persistence). They hold connections, check the presenter key, rate-limit,
   coalesce broadcasts and persist the room. They contain no question logic.
-- **Deck plugin** (`src/deck/` built to `_extensions/live-poll/live-poll.js`)
-  and **Lua filter** (`_extensions/live-poll/live-poll.lua`).
+- **Deck plugin** (`src/deck/` built to `_extensions/live-questions/live-questions.js`)
+  and **Lua filter** (`_extensions/live-questions/live-questions.lua`).
 - **Audience page** (`public/*.html`, `public/vote.css`, `src/audience/`
   built to `public/vote.js`).
 
 ## Repository layout
 
 ```
-_extensions/live-poll/     what `quarto add` installs; live-poll.js is a
+_extensions/live-questions/     what `quarto add` installs; live-questions.js is a
                            committed build artifact
 src/shared/protocol.ts     wire protocol and limits
 src/server/                room core, validation, rate limiting, Hono app
@@ -67,15 +67,15 @@ wrangler.jsonc, Dockerfile, compose.yaml, justfile
 # _quarto.yml or document front matter
 format: revealjs
 filters:
-  - live-poll
+  - live-questions
 revealjs-plugins:
-  - live-poll
-live-poll:
+  - live-questions
+live-questions:
   server: https://questions.example.workers.dev  # omit for static rendering
   session: idpt-8079-2026-10-13
 ```
 
-### Configuration (`live-poll:` metadata)
+### Configuration (`live-questions:` metadata)
 
 | Key | Default | Meaning |
 |---|---|---|
@@ -182,17 +182,17 @@ non-list text inside the div; else the text of the nearest preceding heading.
 - Runs only for revealjs output. For any other format the div is left as a
   plain list.
 - Replaces each `.poll` / `.wordcloud` / `.likert` div with a container
-  `div.lp-question.lp-poll` (or `.lp-wordcloud`, `.lp-likert`) carrying the
-  same id and a `data-lp` JSON attribute: the `Question` definition plus
+  `div.lq-question.lq-poll` (or `.lq-wordcloud`, `.lq-likert`) carrying the
+  same id and a `data-lq` JSON attribute: the `Question` definition plus
   `correct` (option indices, poll only, omitted if none) and `results`.
   Inside it keeps the original list, with task-list markers stripped, as the
   static fallback and as the source of the option (or statement) labels'
-  HTML. A likert question also gets a `div.lp-scale-note` paragraph naming
+  HTML. A likert question also gets a `div.lq-scale-note` paragraph naming
   its scale, shown only in static mode and other formats.
 - Resolves likert presets into explicit `labels` (and `numeric`, `anchors`),
   so the deck and server never need to know preset names.
 - Writes the resolved config as JSON into
-  `<script type="application/json" id="lp-config">` (in the document head).
+  `<script type="application/json" id="lq-config">` (in the document head).
 - Warns (via `quarto.log.warning`) about duplicate ids, polls with fewer than
   two options, and values outside `LIMITS`. Out-of-range `max-words` /
   `max-answers` are clamped; over-long prompts, options, statements and
@@ -203,24 +203,24 @@ non-list text inside the div; else the text of the nearest preceding heading.
 As built, for example:
 
 ```html
-<div id="capital" class="lp-question lp-poll"
-     data-lp='{"type":"poll","id":"capital","prompt":"What is the capital of Australia?",
+<div id="capital" class="lq-question lq-poll"
+     data-lq='{"type":"poll","id":"capital","prompt":"What is the capital of Australia?",
                "options":["Sydney","Canberra","Melbourne","Perth"],"correct":[1],"results":"live"}'>
-  <div class="lp-text">…non-list content of the div, if any…</div>
+  <div class="lq-text">…non-list content of the div, if any…</div>
   <ul><li>Sydney</li><li>Canberra</li>…</ul>
 </div>
-<div id="mood" class="lp-question lp-wordcloud"
-     data-lp='{"type":"wordcloud","id":"mood","prompt":"One word for today’s lecture?",
+<div id="mood" class="lq-question lq-wordcloud"
+     data-lq='{"type":"wordcloud","id":"mood","prompt":"One word for today’s lecture?",
                "maxWords":2,"maxAnswers":3,"results":"live"}'></div>
-<div id="confidence" class="lp-question lp-likert"
-     data-lp='{"type":"likert","id":"confidence","prompt":"How confident are you running a t-test in R?",
+<div id="confidence" class="lq-question lq-likert"
+     data-lq='{"type":"likert","id":"confidence","prompt":"How confident are you running a t-test in R?",
                "statements":["How confident are you running a t-test in R?"],
                "labels":["0","1","2","3","4","5","6","7","8","9","10"],"numeric":true,
                "anchors":["Not at all","Completely"],"results":"live"}'>
-  <div class="lp-scale-note">…</div>
+  <div class="lq-scale-note">…</div>
 </div>
 
-<script type="application/json" id="lp-config">
+<script type="application/json" id="lq-config">
 {"server":"http://localhost:8787","session":"example","closeOnLeave":true,"results":"live","qr":true}
 </script>
 ```
@@ -235,7 +235,7 @@ As built, for example:
   `[A-Za-z0-9_-]` replaced by `-` (runs collapsed, leading and trailing `-`
   dropped, cut to 64 characters).
 - One extension contributes both the filter and the plugin; a document lists
-  it under both `filters: [live-poll]` and `revealjs-plugins: [live-poll]`
+  it under both `filters: [live-questions]` and `revealjs-plugins: [live-questions]`
   (verified with Quarto 1.9).
 
 ## Presenting
@@ -346,20 +346,20 @@ on), so the component works on light and dark themes.
 - **Likert palette**: a fixed red (low) / gray (neutral) / blue (high)
   diverging palette, five steps per arm, rather than the theme's link color
   (which may itself be red or orange). The plugin measures the luminance of
-  `--r-background-color` and sets `data-lp-tone="dark"` on dark themes,
+  `--r-background-color` and sets `data-lq-tone="dark"` on dark themes,
   which swap in steps chosen for a dark surface (brighter toward the ends).
   Text on every step has at least 4.5:1 contrast. The bar and text sizing
   shrinks (to 60% at most) like the bar chart; 1 to 6 statements fit a
   1050×700 slide with a heading and the QR panel.
 
-The QR code comes from `qrcode-generator`, bundled into `live-poll.js`; there
+The QR code comes from `qrcode-generator`, bundled into `live-questions.js`; there
 are no CDN requests.
 
 ## Audience page
 
 - `/s/<session>`, mobile first, light or dark from `prefers-color-scheme`, no
   external requests. `/` shows a "join a session" form.
-- The voter id is a random UUID stored in `localStorage` (`lp:voter`), with an
+- The voter id is a random UUID stored in `localStorage` (`lq:voter`), with an
   in-memory fallback.
 - States: connecting; waiting for a question; poll open (large option buttons,
   current choice highlighted, the vote can be changed while open); word cloud
@@ -417,7 +417,7 @@ decks are usually served from a different origin than the server.
   receives `audience` then `you`, so a client never waits for a change to see
   the current state.
 - Validation copies only known fields, so anything extra a deck sends in a
-  question (for example `correct` or `results` from `data-lp`) is dropped and
+  question (for example `correct` or `results` from `data-lq`) is dropped and
   never stored or broadcast. Polls need 1 to `LIMITS.pollOptions` options;
   word clouds missing `maxWords`/`maxAnswers` get `DEFAULTS`. Likert
   questions need 1 to `LIMITS.likertStatements` statements and 2 to
@@ -568,7 +568,7 @@ same `src/shared/normalize.ts` runs on both sides.
 - Voter ids are generated by the client, so one person can vote again from a
   private window or with a script. That's acceptable for a classroom or talk
   audience; per-IP limits are possible later.
-- Correct answers are embedded in the deck HTML (`data-lp`), so a determined
+- Correct answers are embedded in the deck HTML (`data-lq`), so a determined
   viewer of the deck source can see them.
 - One presenter key per server, shared by all sessions on it.
 - Input is validated server-side against `LIMITS`, and audience text only

@@ -1,6 +1,6 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "live-poll",
+  "name": "live-questions",
   "main": "src/server/cloudflare/worker.ts",
   "compatibility_date": "2026-10-01",
 

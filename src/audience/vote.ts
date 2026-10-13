@@ -69,8 +69,8 @@ const statementShown = (q: LikertQuestion) => !(q.statements.length === 1 && q.s
 function storage(): Storage | null {
   try {
     const s = window.localStorage;
-    s.setItem("lp:test", "1");
-    s.removeItem("lp:test");
+    s.setItem("lq:test", "1");
+    s.removeItem("lq:test");
     return s;
   } catch {
     return null;
@@ -86,10 +86,10 @@ function randomId(): string {
 
 function voterId(): string {
   const s = storage();
-  const existing = s?.getItem("lp:voter");
+  const existing = s?.getItem("lq:voter");
   if (existing && /^[\x21-\x7e]{1,64}$/.test(existing)) return existing;
   const id = randomId();
-  s?.setItem("lp:voter", id);
+  s?.setItem("lq:voter", id);
   return id;
 }
 
@@ -147,7 +147,7 @@ class VotePage {
   constructor(private readonly session: string) {
     const label = document.getElementById("session")!;
     label.textContent = session;
-    document.title = `${session} · Live poll`;
+    document.title = `${session} · Live Questions`;
     document.addEventListener("visibilitychange", () => {
       if (document.visibilityState === "visible" && this.conn === "offline") this.connectNow();
     });

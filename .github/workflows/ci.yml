@@ -43,10 +43,10 @@ jobs:
           bun-version: ${{ env.BUN_VERSION }}
       - run: bun install --frozen-lockfile
       - run: bun run build:deck
-      - name: Check _extensions/live-poll/live-poll.js
+      - name: Check _extensions/live-questions/live-questions.js
         run: |
-          if ! git diff --exit-code -- _extensions/live-poll/live-poll.js; then
-            echo "::error file=_extensions/live-poll/live-poll.js::The committed bundle is out of date. Run 'bun run build:deck' and commit the result."
+          if ! git diff --exit-code -- _extensions/live-questions/live-questions.js; then
+            echo "::error file=_extensions/live-questions/live-questions.js::The committed bundle is out of date. Run 'bun run build:deck' and commit the result."
             exit 1
           fi
 
@@ -110,9 +110,9 @@ jobs:
       - run: quarto render example.qmd
       - name: Check the filter ran
         run: |
-          grep -q 'id="lp-config"' example.html
-          grep -q 'class="lp-question lp-poll"' example.html
-          grep -q 'class="lp-question lp-wordcloud"' example.html
+          grep -q 'id="lq-config"' example.html
+          grep -q 'class="lq-question lq-poll"' example.html
+          grep -q 'class="lq-question lq-wordcloud"' example.html
 
   docker:
     name: Docker image
@@ -126,7 +126,7 @@ jobs:
           context: .
           load: true
           push: false
-          tags: quarto-live-poll:ci
+          tags: quarto-revealjs-live-questions:ci
           cache-from: type=gha
           cache-to: type=gha,mode=max
       - uses: oven-sh/setup-bun@v2
@@ -134,15 +134,15 @@ jobs:
           bun-version: ${{ env.BUN_VERSION }}
       - name: Start the container
         run: |
-          docker run -d --name live-poll -p 8787:8787 -e PRESENTER_KEY=ci-key quarto-live-poll:ci
+          docker run -d --name live-questions -p 8787:8787 -e PRESENTER_KEY=ci-key quarto-revealjs-live-questions:ci
           for _ in $(seq 1 30); do
             curl -fsS http://localhost:8787/healthz && exit 0
             sleep 1
           done
-          docker logs live-poll
+          docker logs live-questions
           exit 1
       # smoke.ts imports only src/shared/protocol.ts, so no bun install.
       - run: bun scripts/smoke.ts http://localhost:8787 ci-key
       - name: Container log
         if: always()
-        run: docker logs live-poll || true
+        run: docker logs live-questions || true

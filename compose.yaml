@@ -2,9 +2,9 @@
 # Put the presenter key in .env (gitignored; see .env.example):
 #   PRESENTER_KEY=some-long-random-string
 services:
-  live-poll:
+  live-questions:
     build: .
-    image: quarto-live-poll
+    image: quarto-revealjs-live-questions
     restart: unless-stopped
     env_file: .env
     environment:
@@ -13,20 +13,20 @@ services:
     ports:
       - "8787:8787"
     volumes:
-      - live-poll-data:/data
+      - live-questions-data:/data
     # Behind Traefik instead of a published port (drop `ports:` above).
     # WebSockets need no extra Traefik configuration.
     # labels:
     #   - traefik.enable=true
-    #   - traefik.http.routers.live-poll.rule=Host(`poll.example.org`)
-    #   - traefik.http.routers.live-poll.entrypoints=websecure
-    #   - traefik.http.routers.live-poll.tls.certresolver=letsencrypt
-    #   - traefik.http.services.live-poll.loadbalancer.server.port=8787
+    #   - traefik.http.routers.live-questions.rule=Host(`poll.example.org`)
+    #   - traefik.http.routers.live-questions.entrypoints=websecure
+    #   - traefik.http.routers.live-questions.tls.certresolver=letsencrypt
+    #   - traefik.http.services.live-questions.loadbalancer.server.port=8787
     # networks:
     #   - traefik
 
 volumes:
-  live-poll-data:
+  live-questions-data:
 
 # networks:
 #   traefik:

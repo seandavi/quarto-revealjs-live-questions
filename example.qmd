@@ -1,12 +1,12 @@
 ---
-title: "Live Poll"
+title: "Live Questions"
 subtitle: "Audience polls, word clouds and rating scales for Quarto revealjs"
 format: revealjs
 filters:
-  - live-poll
+  - live-questions
 revealjs-plugins:
-  - live-poll
-live-poll:
+  - live-questions
+live-questions:
   server: http://localhost:8787
   session: example
 ---

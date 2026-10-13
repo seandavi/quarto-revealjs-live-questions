@@ -21,17 +21,17 @@ export class WordCloud {
   private moderated = false;
 
   constructor(private readonly onHide: HideWord) {
-    this.area = h("div", { class: "lp-cloud-area" });
-    this.tray = h("div", { class: "lp-tray" });
+    this.area = h("div", { class: "lq-cloud-area" });
+    this.tray = h("div", { class: "lq-tray" });
     this.tray.hidden = true;
-    this.el = h("div", { class: "lp-cloud" }, this.area, this.tray);
+    this.el = h("div", { class: "lq-cloud" }, this.area, this.tray);
   }
 
   /** In presenter mode words are clickable (hide) and the tray is shown. */
   setModerated(on: boolean): void {
     if (on === this.moderated) return;
     this.moderated = on;
-    this.el.classList.toggle("lp-moderated", on);
+    this.el.classList.toggle("lq-moderated", on);
     for (const span of this.spans.values()) this.decorate(span);
     this.renderTray();
   }
@@ -87,8 +87,8 @@ export class WordCloud {
       span.style.fontSize = `${p.size.toFixed(1)}px`;
       span.style.transform = `translate(-50%, -50%) translate(${p.x.toFixed(1)}px, ${p.y.toFixed(1)}px)`;
       if (isNew) {
-        span.classList.add("lp-enter");
-        requestAnimationFrame(() => requestAnimationFrame(() => span!.classList.remove("lp-enter")));
+        span.classList.add("lq-enter");
+        requestAnimationFrame(() => requestAnimationFrame(() => span!.classList.remove("lq-enter")));
       }
     });
 
@@ -97,11 +97,11 @@ export class WordCloud {
       span.remove();
       this.spans.delete(key);
     }
-    this.el.classList.toggle("lp-empty", placed.length === 0);
+    this.el.classList.toggle("lq-empty", placed.length === 0);
   }
 
   private createSpan(): HTMLElement {
-    const span = h("span", { class: "lp-word" });
+    const span = h("span", { class: "lq-word" });
     const hide = (e: Event) => {
       if (!this.moderated) return;
       e.preventDefault();
@@ -137,9 +137,9 @@ export class WordCloud {
     }
     this.tray.hidden = false;
     this.tray.replaceChildren(
-      h("span", { class: "lp-tray-label", text: "Hidden" }),
+      h("span", { class: "lq-tray-label", text: "Hidden" }),
       ...this.hidden.map((text) => {
-        const b = button(text, () => this.onHide(text, false), "lp-chip");
+        const b = button(text, () => this.onHide(text, false), "lq-chip");
         b.title = `Show “${text}” again`;
         return b;
       }),

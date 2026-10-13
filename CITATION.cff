@@ -1,7 +1,7 @@
 cff-version: 1.2.0
 message: "If you use this software, please cite it as below."
 type: software
-title: "Live Poll for Quarto revealjs"
+title: "Live Questions for Quarto revealjs"
 abstract: >-
   A Quarto revealjs extension for live audience polls, quizzes and word
   clouds, written in Quarto markdown, with a self-hosted server that runs on
@@ -11,8 +11,8 @@ authors:
     given-names: Sean
 version: 1.0.0
 license: MIT
-repository-code: "https://github.com/seandavi/quarto-live-poll"
-url: "https://github.com/seandavi/quarto-live-poll"
+repository-code: "https://github.com/seandavi/quarto-revealjs-live-questions"
+url: "https://github.com/seandavi/quarto-revealjs-live-questions"
 keywords:
   - quarto
   - quarto-extension

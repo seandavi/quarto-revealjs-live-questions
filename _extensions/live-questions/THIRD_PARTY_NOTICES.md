@@ -1,7 +1,7 @@
 # Third-party notices
 
-`live-poll.js` in this directory is a bundle. Besides this project's own code
-(MIT, see the LICENSE file at https://github.com/seandavi/quarto-live-poll), it
+`live-questions.js` in this directory is a bundle. Besides this project's own code
+(MIT, see the LICENSE file at https://github.com/seandavi/quarto-revealjs-live-questions), it
 contains the following third-party software.
 
 ## qrcode-generator

@@ -1,9 +1,9 @@
-# Live Poll for Quarto revealjs
+# Live Questions for Quarto revealjs
 
 Live audience polls, quizzes, word clouds and rating scales for Quarto revealjs slides,
 written in Quarto markdown and backed by a small server you run yourself.
 
-[![CI](https://github.com/seandavi/quarto-live-poll/actions/workflows/ci.yml/badge.svg)](https://github.com/seandavi/quarto-live-poll/actions/workflows/ci.yml)
+[![CI](https://github.com/seandavi/quarto-revealjs-live-questions/actions/workflows/ci.yml/badge.svg)](https://github.com/seandavi/quarto-revealjs-live-questions/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Quarto >= 1.9](https://img.shields.io/badge/Quarto-%E2%89%A5%201.9-39729e.svg)](https://quarto.org)
 [![Cloudflare Workers](https://img.shields.io/badge/server-Cloudflare%20Workers-f38020.svg)](#cloudflare-worker--durable-object)
@@ -16,7 +16,7 @@ written in Quarto markdown and backed by a small server you run yourself.
 Asking the room a question is one of the easiest ways to keep a lecture or
 talk interactive, but the usual tools live outside your slides: a separate
 account, a separate editor, and a copy of the question that drifts from the
-deck. Live Poll keeps the question in your `.qmd` file. The same source
+deck. Live Questions keeps the question in your `.qmd` file. The same source
 renders as a live poll in the browser and as a plain list in a PDF.
 
 ## Features
@@ -48,10 +48,10 @@ renders as a live poll in the browser and as a plain list in a PDF.
 ### 1. Install the extension
 
 ```bash
-quarto add seandavi/quarto-live-poll
+quarto add seandavi/quarto-revealjs-live-questions
 ```
 
-This installs `_extensions/live-poll/` (a Lua filter and a revealjs plugin)
+This installs `_extensions/live-questions/` (a Lua filter and a revealjs plugin)
 next to your slides. Commit it with them.
 
 ### 2. Enable it and write questions
@@ -61,11 +61,11 @@ next to your slides. Commit it with them.
 title: "Week 3"
 format: revealjs
 filters:
-  - live-poll
+  - live-questions
 revealjs-plugins:
-  - live-poll
-live-poll:
-  server: https://live-poll.example.workers.dev   # your server (step 3)
+  - live-questions
+live-questions:
+  server: https://live-questions.example.workers.dev   # your server (step 3)
   session: stats101-week3                          # one room per talk
 ---
 ```
@@ -95,16 +95,16 @@ The quickest option is Cloudflare's free plan. You need
 account.
 
 ```bash
-git clone https://github.com/seandavi/quarto-live-poll.git
-cd quarto-live-poll
+git clone https://github.com/seandavi/quarto-revealjs-live-questions.git
+cd quarto-revealjs-live-questions
 bun install
 bunx wrangler login
 openssl rand -hex 24                      # a presenter key; keep it somewhere safe
 bunx wrangler secret put PRESENTER_KEY    # paste the key
-bunx wrangler deploy                      # prints https://live-poll.<account>.workers.dev
+bunx wrangler deploy                      # prints https://live-questions.<account>.workers.dev
 ```
 
-Put the printed URL in `live-poll: server:`. To run the server in Docker
+Put the printed URL in `live-questions: server:`. To run the server in Docker
 instead, see [Running the server](#running-the-server).
 
 ### 4. Present
@@ -262,11 +262,11 @@ fewer than two options and out-of-range values.
 
 ### Options
 
-Set these under `live-poll:` in the document front matter or `_quarto.yml`.
+Set these under `live-questions:` in the document front matter or `_quarto.yml`.
 
 | Key | Default | Meaning |
 |---|---|---|
-| `server` | none | Server origin, e.g. `https://live-poll.example.workers.dev`. Without it the deck renders statically. |
+| `server` | none | Server origin, e.g. `https://live-questions.example.workers.dev`. Without it the deck renders statically. |
 | `session` | input file name | Room name: letters, digits, `-` and `_`, up to 64 characters. A new name starts with empty results. |
 | `close-on-leave` | `true` | Close voting when you move off the question's slide. |
 | `results` | `live` | `hidden` keeps results off the slide until you press `T` (or reveal the answer). |
@@ -409,7 +409,7 @@ docker compose up -d --build
 ```
 
 The container listens on port 8787, runs as a non-root user and keeps
-results in the `live-poll-data` volume, one JSON file per session.
+results in the `live-questions-data` volume, one JSON file per session.
 `compose.yaml` includes commented Traefik labels for running it behind a
 reverse proxy with TLS. Environment variables:
 
@@ -445,8 +445,8 @@ The smoke test leaves a `smoke-...` session behind on the server.
 
 ```
 presenter deck (Quarto revealjs)               audience phones
- live-poll.lua   markup -> question JSON        /s/<session>  voting page
- live-poll.js    slide change -> open question,      |
+ live-questions.lua   markup -> question JSON        /s/<session>  voting page
+ live-questions.js    slide change -> open question,      |
                  QR code, live bars / word cloud     | WebSocket
        | WebSocket                                   |
        +------------> one room per session <---------+
@@ -473,7 +473,7 @@ detail. The wire protocol is [src/shared/protocol.ts](src/shared/protocol.ts).
 configure, over one WebSocket. With no `server:` it makes no network
 requests and the deck works fully offline. There is no telemetry, and there
 is no default or hosted server: if you don't run one, nothing is sent
-anywhere. The QR code library is bundled into `live-poll.js`, so nothing is
+anywhere. The QR code library is bundled into `live-questions.js`, so nothing is
 loaded from a CDN. The phone page is served by your server and loads nothing
 from anywhere else (its Content-Security-Policy allows only its own origin).
 
@@ -493,7 +493,7 @@ request logs for your account; remove that setting if you don't want them.
   Someone can vote again from a private window, another browser or a script.
   The server rate-limits each connection but has no per-person or per-IP
   limit.
-- Correct answers for quizzes are in the deck's HTML (`data-lp`). Anyone
+- Correct answers for quizzes are in the deck's HTML (`data-lq`). Anyone
   reading the page source can find them before the reveal.
 - One presenter key per server, shared by every session on it. There are no
   accounts or per-deck keys; anyone with the key can control any session.
@@ -515,7 +515,7 @@ just test
 just render       # renders example.qmd
 ```
 
-`_extensions/live-poll/live-poll.js` is a committed build artifact, because
+`_extensions/live-questions/live-questions.js` is a committed build artifact, because
 `quarto add` installs it as is. Rebuild it after changing `src/deck/`; CI
 fails if it is out of date. [CONTRIBUTING.md](CONTRIBUTING.md) covers the
 repository layout, where changes belong, tests and protocol changes. Please
@@ -523,7 +523,7 @@ read the [Code of Conduct](CODE_OF_CONDUCT.md) before taking part.
 
 ## Prior work and the gap this fills
 
-Live Poll borrows ideas from several projects. Here is how they compare.
+Live Questions borrows ideas from several projects. Here is how they compare.
 
 - **[rajgoel/reveal.js-plugins](https://github.com/rajgoel/reveal.js-plugins)**
   includes a [poll](https://github.com/rajgoel/reveal.js-plugins/tree/master/poll)
@@ -567,7 +567,7 @@ Live Poll borrows ideas from several projects. Here is how they compare.
   accounts, free tiers and integrations with presentation software such as
   PowerPoint. Questions live in their editors, not in your slide source.
 
-**The gap.** Live Poll is for people who already write slides in Quarto. The
+**The gap.** Live Questions is for people who already write slides in Quarto. The
 questions, options and correct answers are written in Quarto markdown inside
 the slides, and the same source renders as a live poll in revealjs and as a
 plain list in a PDF. The server is yours: it runs on the Cloudflare Workers
@@ -596,4 +596,4 @@ voting twice.
 [MIT](LICENSE) © 2026 Sean Davis. The deck bundle includes
 [qrcode-generator](https://github.com/kazuhikoarase/qrcode-generator)
 (MIT, © 2009 Kazuhiko Arase); its notice is in
-[`_extensions/live-poll/THIRD_PARTY_NOTICES.md`](_extensions/live-poll/THIRD_PARTY_NOTICES.md).
+[`_extensions/live-questions/THIRD_PARTY_NOTICES.md`](_extensions/live-questions/THIRD_PARTY_NOTICES.md).

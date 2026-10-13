@@ -43,10 +43,10 @@ a deck; run it without arguments for usage.
 ## Repository layout
 
 ```
-_extensions/live-poll/     what `quarto add` installs
-  live-poll.lua            Lua filter: markup -> question JSON
-  live-poll.js             deck plugin bundle (built from src/deck/, committed)
-  live-poll.css            slide styles
+_extensions/live-questions/     what `quarto add` installs
+  live-questions.lua            Lua filter: markup -> question JSON
+  live-questions.js             deck plugin bundle (built from src/deck/, committed)
+  live-questions.css            slide styles
 src/shared/                wire protocol (protocol.ts) and answer normalization
 src/server/room.ts         Room core: all voting rules, no I/O
 src/server/hub.ts          connection handling shared by both runtimes
@@ -76,7 +76,7 @@ changes touch one of them.
 | Handshake, presenter check, size limits, rate limiting, broadcast coalescing, when state is persisted | `src/server/hub.ts` (the Hub) | `hub.test.ts`, `ratelimit.test.ts` |
 | Routes, headers, the export endpoint | `src/server/app.ts` | smoke test |
 | How sockets are held or state is stored on one runtime | `src/server/cloudflare/worker.ts` or `src/server/node/main.ts` (the adapters) | smoke test against that runtime |
-| Markup, attributes, config keys, render-time warnings | `_extensions/live-poll/live-poll.lua` | render `example.qmd` |
+| Markup, attributes, config keys, render-time warnings | `_extensions/live-questions/live-questions.lua` | render `example.qmd` |
 | What the slide shows, keys, presenter lifecycle | `src/deck/` | `cloud-layout.test.ts`, manual deck check |
 | The phone page | `src/audience/vote.ts`, `public/` | manual check in a phone-sized window |
 
@@ -92,20 +92,20 @@ Two rules keep this manageable:
 
 ## The committed bundle
 
-`_extensions/live-poll/live-poll.js` is checked in, because `quarto add`
+`_extensions/live-questions/live-questions.js` is checked in, because `quarto add`
 installs the `_extensions/` folder as it is in the repository. After changing
 anything under `src/deck/` or `src/shared/`:
 
 ```bash
 bun run build:deck
-git add _extensions/live-poll/live-poll.js
+git add _extensions/live-questions/live-questions.js
 ```
 
 CI rebuilds the bundle and fails if it differs from the committed file. CI
 builds with the Bun release pinned as `BUN_VERSION` in
 `.github/workflows/ci.yml`; if your Bun produces a different file, build with
 that release (`bunx bun@<version> run build:deck`), or update the pin in the
-same pull request. Do not edit `live-poll.js` by hand. `public/vote.js` and `dist/` are build
+same pull request. Do not edit `live-questions.js` by hand. `public/vote.js` and `dist/` are build
 output and are not committed.
 
 ## Tests
@@ -120,7 +120,7 @@ output and are not committed.
   presenter and several phones through a poll and a word cloud against a
   running server. Run it against the Node server for any server change, and
   against `bunx wrangler dev` (`just dev-cf`) if you touched the Worker.
-- **Worker bundle**: `bunx wrangler deploy --dry-run --outdir /tmp/lp-worker`
+- **Worker bundle**: `bunx wrangler deploy --dry-run --outdir /tmp/lq-worker`
   checks that the Worker bundles. It needs no Cloudflare account.
 - **Deck**: render `example.qmd` and check it as presenter, viewer and static
   (`?print-pdf`), on a light and a dark theme, with a phone-sized window

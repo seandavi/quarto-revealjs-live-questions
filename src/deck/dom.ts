@@ -19,7 +19,7 @@ export function h<K extends keyof HTMLElementTagNameMap>(
 }
 
 export function button(text: string, onClick: () => void, cls = ""): HTMLButtonElement {
-  const b = h("button", { class: `lp-btn ${cls}`.trim(), text, attrs: { type: "button" } });
+  const b = h("button", { class: `lq-btn ${cls}`.trim(), text, attrs: { type: "button" } });
   b.addEventListener("click", (e) => {
     e.stopPropagation();
     onClick();

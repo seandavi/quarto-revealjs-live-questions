@@ -74,7 +74,7 @@ export function createApp<E extends Env = Env>(deps: AppDeps<E>): Hono<E> {
     const session = c.req.param("session");
     if (!isSession(session)) return c.json({ error: "invalid session name" }, 404);
     if (!bearerMatches(c.req.header("authorization"), deps.presenterKey(c))) {
-      c.header("WWW-Authenticate", 'Bearer realm="live-poll"');
+      c.header("WWW-Authenticate", 'Bearer realm="live-questions"');
       return c.json({ error: "presenter key required" }, 401);
     }
     return c.json(await deps.exportRoom(c, session));
@@ -85,7 +85,7 @@ export function createApp<E extends Env = Env>(deps: AppDeps<E>): Hono<E> {
 
   app.notFound((c) => c.text("Not found.", 404));
   app.onError((err, c) => {
-    console.error("live-poll:", err);
+    console.error("live-questions:", err);
     return c.text("Internal error.", 500);
   });
 

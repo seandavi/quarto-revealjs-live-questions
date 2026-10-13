@@ -1,24 +1,24 @@
 /**
- * Entry point, bundled to _extensions/live-poll/live-poll.js as an IIFE.
- * Quarto lists `RevealLivePoll` in Reveal.initialize({ plugins: [...] }), so
+ * Entry point, bundled to _extensions/live-questions/live-questions.js as an IIFE.
+ * Quarto lists `RevealLiveQuestions` in Reveal.initialize({ plugins: [...] }), so
  * the global must be a function returning the plugin object.
  */
 
-import { LivePoll } from "./live-poll";
+import { LiveQuestions } from "./live-questions";
 import type { RevealApi } from "./types";
 
-function RevealLivePoll() {
+function RevealLiveQuestions() {
   return {
-    id: "RevealLivePoll",
+    id: "RevealLiveQuestions",
     init(deck: RevealApi) {
       try {
-        new LivePoll(deck).init();
+        new LiveQuestions(deck).init();
       } catch (err) {
         // Never take the deck down with us.
-        console.error("[live-poll] failed to start", err);
+        console.error("[live-questions] failed to start", err);
       }
     },
   };
 }
 
-(window as unknown as { RevealLivePoll: typeof RevealLivePoll }).RevealLivePoll = RevealLivePoll;
+(window as unknown as { RevealLiveQuestions: typeof RevealLiveQuestions }).RevealLiveQuestions = RevealLiveQuestions;

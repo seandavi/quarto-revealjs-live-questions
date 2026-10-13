@@ -44,7 +44,7 @@ function sameDefinition(a: unknown, b: unknown): boolean {
   return JSON.stringify(a) === JSON.stringify(b);
 }
 
-export class LivePoll {
+export class LiveQuestions {
   private mode: Mode = "static";
   private config!: LpConfig;
   private conn: Connection | null = null;
@@ -64,19 +64,19 @@ export class LivePoll {
 
   init(): void {
     const config = readConfig();
-    const elements = Array.from(document.querySelectorAll<HTMLElement>(".lp-question[data-lp]"));
+    const elements = Array.from(document.querySelectorAll<HTMLElement>(".lq-question[data-lq]"));
     const embedded = isEmbedded();
     takeKeyFromUrl(config?.server, !embedded);
 
     const print = isPrint(window.location.search) || this.deck.isPrintView();
     if (!config || !config.server || print) {
-      for (const el of elements) el.classList.add("lp-static");
-      document.documentElement.dataset.lpMode = "static";
+      for (const el of elements) el.classList.add("lq-static");
+      document.documentElement.dataset.lqMode = "static";
       return;
     }
     this.config = config;
     this.mode = embedded ? "embedded" : "viewer";
-    document.documentElement.dataset.lpMode = this.mode;
+    document.documentElement.dataset.lqMode = this.mode;
     document.documentElement.dataset.lpTone = themeTone(this.deck.getRevealElement());
 
     const server = config.server;
@@ -99,7 +99,7 @@ export class LivePoll {
     for (const el of elements) {
       const q = readQuestion(el);
       if (!q) continue;
-      if (seen.has(q.id)) console.warn(`[live-poll] duplicate question id "${q.id}"`);
+      if (seen.has(q.id)) console.warn(`[live-questions] duplicate question id "${q.id}"`);
       seen.add(q.id);
       this.views.push(new QuestionView(el, q, ctx));
     }
@@ -133,7 +133,7 @@ export class LivePoll {
   private send(msg: ClientMessage): boolean {
     if (!this.presenter && msg.t !== "ping") return false;
     const sent = this.conn?.send(msg) ?? false;
-    if (!sent) this.toast?.show("Not connected to the live poll server");
+    if (!sent) this.toast?.show("Not connected to the Live Questions server");
     return sent;
   }
 
@@ -166,8 +166,8 @@ export class LivePoll {
         }
         break;
       case "error":
-        console.warn(`[live-poll] server error ${msg.code}: ${msg.message}`);
-        if (this.presenter) this.toast?.show(`Live poll: ${msg.message || msg.code}`);
+        console.warn(`[live-questions] server error ${msg.code}: ${msg.message}`);
+        if (this.presenter) this.toast?.show(`Live Questions: ${msg.message || msg.code}`);
         break;
       default:
         break;
@@ -177,7 +177,7 @@ export class LivePoll {
   private setPresenter(on: boolean): void {
     this.presenter = on;
     const mode: Mode = on ? "presenter" : this.mode === "embedded" ? "embedded" : "viewer";
-    document.documentElement.dataset.lpMode = mode;
+    document.documentElement.dataset.lqMode = mode;
     for (const v of this.views) v.setPresenter(on);
   }
 
@@ -255,26 +255,26 @@ export class LivePoll {
 
   private registerKeys(): void {
     this.deck.addKeyBinding(
-      { keyCode: KEY_Q, key: "Q", description: "Live poll: full-screen QR code" },
+      { keyCode: KEY_Q, key: "Q", description: "Live Questions: full-screen QR code" },
       () => this.overlay?.toggle(),
     );
     this.deck.addKeyBinding(
-      { keyCode: KEY_A, key: "A", description: "Live poll: reveal the correct answer" },
+      { keyCode: KEY_A, key: "A", description: "Live Questions: reveal the correct answer" },
       () => this.revealAnswer(),
     );
     this.deck.addKeyBinding(
-      { keyCode: KEY_T, key: "T", description: "Live poll: show or hide results" },
+      { keyCode: KEY_T, key: "T", description: "Live Questions: show or hide results" },
       () => {
         const view = this.currentView();
         if (view) view.toggleResults();
-        else this.toast?.show("No live poll on this slide");
+        else this.toast?.show("No live question on this slide");
       },
     );
   }
 
   private revealAnswer(): void {
     const view = this.currentView();
-    if (!view) return this.toast?.show("No live poll on this slide");
+    if (!view) return this.toast?.show("No live question on this slide");
     if (!this.presenter) return this.toast?.show("Only the presenter can reveal answers");
     const q = view.q;
     if (q.type === "likert") return this.toast?.show("Rating scales have no answer to reveal");

@@ -1,13 +1,13 @@
-title: Live Poll
+title: Live Questions
 author: Sean Davis
 version: 1.0.0
 quarto-required: ">=1.9.0"
 contributes:
   filters:
-    - live-poll.lua
+    - live-questions.lua
   revealjs-plugins:
-    - name: RevealLivePoll
+    - name: RevealLiveQuestions
       script:
-        - live-poll.js
+        - live-questions.js
       stylesheet:
-        - live-poll.css
+        - live-questions.css

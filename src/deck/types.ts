@@ -18,14 +18,14 @@ export interface RevealApi {
 
 export type ResultsMode = "live" | "hidden";
 
-/** What the Lua filter writes into `data-lp`. */
+/** What the Lua filter writes into `data-lq`. */
 export type LpQuestion = Question & {
   /** Poll only: correct option indices; absent if the poll has no right answer. */
   correct?: number[];
   results: ResultsMode;
 };
 
-/** What the Lua filter writes into `script#lp-config`. */
+/** What the Lua filter writes into `script#lq-config`. */
 export interface LpConfig {
   server?: string;
   session: string;

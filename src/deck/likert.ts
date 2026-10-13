@@ -120,37 +120,37 @@ export class LikertChart {
     // A single statement taken from the prompt is already the slide's question.
     const showLabels = !(q.statements.length === 1 && q.statements[0] === q.prompt);
     const label = (i: number) => {
-      const el = h("div", { class: "lp-lk-label" });
+      const el = h("div", { class: "lq-lk-label" });
       el.append(...labelNodes(items[i], q.statements[i] ?? ""));
       return showLabels ? el : null;
     };
 
-    const rows = h("div", { class: "lp-lk-rows" });
+    const rows = h("div", { class: "lq-lk-rows" });
     if (!q.numeric) {
       const palette = tones(n);
       for (let s = 0; s < q.statements.length; s++) {
         const segs: HTMLElement[] = [];
         const pcts: HTMLElement[] = [];
         for (let p = 0; p < n; p++) {
-          const pct = h("span", { class: "lp-lk-pct" });
+          const pct = h("span", { class: "lq-lk-pct" });
           const seg = h("div", {
-            class: "lp-lk-seg",
+            class: "lq-lk-seg",
             attrs: { "data-side": palette[p]!.side, "data-step": String(palette[p]!.step), title: q.labels[p]! },
           }, pct);
           segs.push(seg);
           pcts.push(pct);
         }
-        const neg = h("span", { class: "lp-lk-total lp-lk-neg" });
-        const pos = h("span", { class: "lp-lk-total lp-lk-pos" });
-        const count = h("span", { class: "lp-lk-n" });
-        const axis = h("div", { class: "lp-lk-axis" });
+        const neg = h("span", { class: "lq-lk-total lq-lk-neg" });
+        const pos = h("span", { class: "lq-lk-total lq-lk-pos" });
+        const count = h("span", { class: "lq-lk-n" });
+        const axis = h("div", { class: "lq-lk-axis" });
         this.axes.push(axis);
         rows.append(
           h(
             "div",
-            { class: "lp-lk-row" },
-            h("div", { class: "lp-lk-head" }, label(s), count),
-            h("div", { class: "lp-lk-line" }, neg, h("div", { class: "lp-lk-track" }, axis, ...segs), pos),
+            { class: "lq-lk-row" },
+            h("div", { class: "lq-lk-head" }, label(s), count),
+            h("div", { class: "lq-lk-line" }, neg, h("div", { class: "lq-lk-track" }, axis, ...segs), pos),
           ),
         );
         this.diverging.push({ segs, pcts, neg, pos, n: count });
@@ -160,22 +160,22 @@ export class LikertChart {
         const bars: HTMLElement[] = [];
         const counts: HTMLElement[] = [];
         const cols = q.labels.map(() => {
-          const c = h("span", { class: "lp-hist-n" });
-          const bar = h("div", { class: "lp-hist-bar" }, c);
+          const c = h("span", { class: "lq-hist-n" });
+          const bar = h("div", { class: "lq-hist-bar" }, c);
           bars.push(bar);
           counts.push(c);
-          return h("div", { class: "lp-hist-col" }, bar);
+          return h("div", { class: "lq-hist-col" }, bar);
         });
-        const mean = h("div", { class: "lp-hist-mean", attrs: { "aria-hidden": "true" } });
-        const axis = h("div", { class: "lp-hist-axis" }, ...q.labels.map((l) => h("span", { text: l })));
-        const stats = h("span", { class: "lp-lk-stats" });
-        const count = h("span", { class: "lp-lk-n" });
+        const mean = h("div", { class: "lq-hist-mean", attrs: { "aria-hidden": "true" } });
+        const axis = h("div", { class: "lq-hist-axis" }, ...q.labels.map((l) => h("span", { text: l })));
+        const stats = h("span", { class: "lq-lk-stats" });
+        const count = h("span", { class: "lq-lk-n" });
         rows.append(
           h(
             "div",
-            { class: "lp-lk-row" },
-            h("div", { class: "lp-lk-head" }, label(s), h("span", { class: "lp-lk-meta" }, stats, count)),
-            h("div", { class: "lp-hist" }, ...cols, mean),
+            { class: "lq-lk-row" },
+            h("div", { class: "lq-lk-head" }, label(s), h("span", { class: "lq-lk-meta" }, stats, count)),
+            h("div", { class: "lq-hist" }, ...cols, mean),
             axis,
           ),
         );
@@ -187,13 +187,13 @@ export class LikertChart {
       "div",
       {
         // With one point per side, the side totals would repeat the segment percentages.
-        class: `lp-likert ${q.numeric ? "lp-lk-numeric" : "lp-lk-labeled"}${n <= 3 ? " lp-lk-short" : ""}`,
+        class: `lq-likert ${q.numeric ? "lq-lk-numeric" : "lq-lk-labeled"}${n <= 3 ? " lq-lk-short" : ""}`,
         attrs: { "data-statements": String(q.statements.length) },
       },
       this.legend(),
       rows,
     );
-    this.el.style.setProperty("--lp-points", String(n));
+    this.el.style.setProperty("--lq-points", String(n));
   }
 
   /** Labeled: swatch and label per point. Numeric: the end anchors, if any. */
@@ -201,26 +201,26 @@ export class LikertChart {
     const q = this.q;
     if (q.numeric) {
       const end = (value: string, text: string | undefined) =>
-        text ? h("span", { class: "lp-lk-anchor" }, h("b", { text: value }), ` ${text}`) : null;
+        text ? h("span", { class: "lq-lk-anchor" }, h("b", { text: value }), ` ${text}`) : null;
       const anchored = !!(q.anchors?.[0] || q.anchors?.[1]);
       return h(
         "div",
-        { class: "lp-lk-legend lp-lk-anchors" },
+        { class: "lq-lk-legend lq-lk-anchors" },
         end(q.labels[0]!, q.anchors?.[0]),
-        anchored ? h("span", { class: "lp-lk-dash", attrs: { "aria-hidden": "true" } }) : null,
+        anchored ? h("span", { class: "lq-lk-dash", attrs: { "aria-hidden": "true" } }) : null,
         end(q.labels[q.labels.length - 1]!, q.anchors?.[1]),
-        h("span", { class: "lp-lk-key lp-lk-mean-key" }, h("i", { class: "lp-lk-mean-icon" }), "mean"),
+        h("span", { class: "lq-lk-key lq-lk-mean-key" }, h("i", { class: "lq-lk-mean-icon" }), "mean"),
       );
     }
     const palette = tones(q.labels.length);
     return h(
       "div",
-      { class: "lp-lk-legend" },
+      { class: "lq-lk-legend" },
       ...q.labels.map((l, i) =>
         h(
           "span",
-          { class: "lp-lk-key" },
-          h("i", { class: "lp-lk-swatch", attrs: { "data-side": palette[i]!.side, "data-step": String(palette[i]!.step) } }),
+          { class: "lq-lk-key" },
+          h("i", { class: "lq-lk-swatch", attrs: { "data-side": palette[i]!.side, "data-step": String(palette[i]!.step) } }),
           l,
         ),
       ),
@@ -246,7 +246,7 @@ export class LikertChart {
         const w = b.width[p] ?? 0;
         seg.style.left = `${at(b.start[p] ?? 0).toFixed(3)}%`;
         seg.style.width = `${((w / span) * 100).toFixed(3)}%`;
-        seg.classList.toggle("lp-lk-zero", w === 0);
+        seg.classList.toggle("lq-lk-zero", w === 0);
         row.pcts[p]!.textContent = w > 0 ? pctText(w) : "";
       });
       row.neg.textContent = b.total > 0 ? pctText(b.neg) : "";
@@ -262,7 +262,7 @@ export class LikertChart {
       const row = this.hist[s]!;
       c.forEach((count, p) => {
         row.bars[p]!.style.height = max > 0 ? `${((count / max) * 100).toFixed(2)}%` : "0%";
-        row.bars[p]!.classList.toggle("lp-hist-empty", count === 0);
+        row.bars[p]!.classList.toggle("lq-hist-empty", count === 0);
         row.counts[p]!.textContent = count > 0 ? String(count) : "";
       });
       const sum = summary(c, this.values);
