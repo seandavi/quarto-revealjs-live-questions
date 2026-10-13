@@ -16,3 +16,5 @@ public/vote.js
 
 # Node server data
 data/
+.claude/
+.playwright-mcp/
