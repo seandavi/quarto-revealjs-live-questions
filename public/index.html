@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="theme-color" content="#f3f5fa" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#0f1524" media="(prefers-color-scheme: dark)" />
+    <meta name="referrer" content="no-referrer" />
+    <title>Join a session</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='4' y='17' width='6' height='11' rx='2' fill='%232d5be3'/%3E%3Crect x='13' y='6' width='6' height='22' rx='2' fill='%23ffd21f'/%3E%3Crect x='22' y='12' width='6' height='16' rx='2' fill='%232d5be3'/%3E%3C/svg%3E" />
+    <link rel="stylesheet" href="/vote.css" />
+    <script src="/vote.js" defer></script>
+  </head>
+  <body>
+    <main class="main" id="join">
+      <section class="view">
+        <h1 class="prompt">Join a session</h1>
+        <p class="hint">Scan the QR code on the slide, or type the session name shown under it.</p>
+        <form class="join" id="join-form" action="/" method="get" novalidate>
+          <label class="field-label" for="join-session">Session name</label>
+          <div class="answer-row">
+            <input
+              class="text-input"
+              id="join-session"
+              name="session"
+              autocomplete="off"
+              autocapitalize="none"
+              autocorrect="off"
+              spellcheck="false"
+              enterkeyhint="go"
+              maxlength="64"
+              placeholder="e.g. stats-101-week-3"
+              required
+            />
+            <button class="send" type="submit">Join</button>
+          </div>
+          <p class="field-error" id="join-error" role="alert"></p>
+        </form>
+      </section>
+    </main>
+  </body>
+</html>

@@ -1,0 +1,61 @@
+name: Bug report
+description: Something in the extension, the server or the phone page does not work as documented.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. Please do not include your presenter key.
+        Security problems go through private reporting instead (see SECURITY.md).
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what happened instead.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      description: The smallest deck (front matter and question markup) and steps that show the problem.
+      render: markdown
+    validations:
+      required: true
+  - type: dropdown
+    id: part
+    attributes:
+      label: Which part
+      multiple: true
+      options:
+        - Rendering (Lua filter, warnings, static output)
+        - Slides (bars, word cloud, QR code, keys, presenter mode)
+        - Phone page
+        - Server on Cloudflare
+        - Server in Docker / Node
+        - Documentation
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Extension version
+      description: "`version:` in `_extensions/live-questions/_extension.yml` (or the server's git commit)"
+    validations:
+      required: true
+  - type: input
+    id: quarto
+    attributes:
+      label: Quarto version
+      description: Output of `quarto --version`
+  - type: input
+    id: browser
+    attributes:
+      label: Browsers and devices
+      description: For example "Firefox 140 on macOS for the deck, Safari on iOS 19 for phones"
+  - type: textarea
+    id: logs
+    attributes:
+      label: Console output or server logs
+      description: Browser console lines starting with `[live-questions]`, render warnings, or server log lines.
+      render: text

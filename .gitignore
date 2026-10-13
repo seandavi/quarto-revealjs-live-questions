@@ -1,2 +1,20 @@
+# Rendered decks
 *.html
+!public/*.html
 *_files/
+.quarto/
+
+# Build output (the deck bundle in _extensions/ IS committed: quarto add needs it)
+node_modules/
+dist/
+public/vote.js
+
+# Wrangler local state and secrets
+.wrangler/
+.dev.vars
+.env
+
+# Node server data
+data/
+.claude/
+.playwright-mcp/

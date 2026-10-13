@@ -1,0 +1,29 @@
+version: 2
+updates:
+  # package.json / bun.lock (Dependabot's "bun" ecosystem).
+  - package-ecosystem: bun
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      runtime:
+        dependency-type: production
+      dev-tools:
+        dependency-type: development
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]
+
+  # Base images in the Dockerfile (oven/bun, node).
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      base-images:
+        patterns: ["*"]

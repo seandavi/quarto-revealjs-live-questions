@@ -1,0 +1,39 @@
+{
+  "name": "quarto-revealjs-live-questions",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Live polls, quizzes, word clouds and rating scales for Quarto revealjs decks, with a Cloudflare or Docker backend",
+  "license": "MIT",
+  "author": "Sean Davis",
+  "homepage": "https://github.com/seandavi/quarto-revealjs-live-questions#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/seandavi/quarto-revealjs-live-questions.git"
+  },
+  "bugs": {
+    "url": "https://github.com/seandavi/quarto-revealjs-live-questions/issues"
+  },
+  "scripts": {
+    "build": "bun run build:deck && bun run build:audience && bun run build:node",
+    "build:deck": "bun build src/deck/plugin.ts --target=browser --format=iife --banner '/*! live-questions | MIT | https://github.com/seandavi/quarto-revealjs-live-questions | includes qrcode-generator, (c) 2009 Kazuhiko Arase, MIT: see THIRD_PARTY_NOTICES.md */' --outfile=_extensions/live-questions/live-questions.js",
+    "build:audience": "bun build src/audience/vote.ts --target=browser --format=iife --outfile=public/vote.js",
+    "build:node": "bun build src/server/node/main.ts --target=node --outfile=dist/server.js",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.worker.json --noEmit",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "@hono/node-server": "^2.1.5",
+    "hono": "^4.13.13",
+    "qrcode-generator": "^2.0.4",
+    "ws": "^8.22.0"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20261013.1",
+    "@types/bun": "^1.4.3",
+    "@types/node": "^26.6.5",
+    "@types/ws": "^8.18.2",
+    "typescript": "^7.0.2",
+    "wrangler": "^4.150.0"
+  }
+}

@@ -1,31 +1,83 @@
 ---
-title: "Quarto-reveal-questions Example"
-format:
-  revealjs: default
+title: "Live Questions"
+subtitle: "Audience polls, word clouds and rating scales for Quarto revealjs"
+format: revealjs
+filters:
+  - live-questions
 revealjs-plugins:
-  - quarto-reveal-questions
+  - live-questions
+live-questions:
+  server: http://localhost:8787
+  session: example
 ---
 
-# In the morning
+## Which language do you use most for data analysis?
 
-## Getting up
+::: {.poll #lang}
+- R
+- Python
+- Julia
+- Something else
+:::
 
-- Turn off alarm
-- Get out of bed
+## What is the capital of Australia?
 
-## Breakfast
+::: {.poll #capital}
+- [ ] Sydney
+- [x] Canberra
+- [ ] Melbourne
+- [ ] Perth
+:::
 
-- Eat eggs
-- Drink coffee
+## In between questions
 
-# In the evening
+An ordinary slide. With `close-on-leave` (the default), arriving here
+closes the question on the previous slide, so late votes are rejected.
 
-## Dinner
+Phones keep showing the closed question's results until the next one opens.
 
-- Eat spaghetti
-- Drink wine
+## One word for today's lecture?
 
-## Going to sleep
+::: {.wordcloud #mood max-words=2 max-answers=3}
+:::
 
-- Get in bed
-- Count sheep
+## Before the reveal
+
+::: {.poll #pvalue results="hidden"}
+A p-value of 0.03 means:
+
+- [ ] There is a 3% chance the null hypothesis is true
+- [x] Data this extreme would occur 3% of the time if the null were true
+- [ ] There is a 97% chance the result is real
+:::
+
+## How did today go?
+
+::: {.likert #feedback scale="agree-5"}
+- The pace of today's lecture was right
+- The examples helped
+- I could follow the live coding
+:::
+
+## How confident are you running a t-test in R?
+
+::: {.likert #confidence scale="0-10" low="Not at all" high="Completely"}
+:::
+
+## How was the pace?
+
+::: {.likert #speed labels="Too slow|Just right|Too fast"}
+- Pace of today's lecture
+:::
+
+## Presenter keys
+
+| Key | Action |
+|-----|--------|
+| `Q` | Full-screen QR code for everyone to scan |
+| `A` | Reveal the correct answer (also closes voting) |
+| `T` | Show or hide results on this slide |
+
+Open the deck once with `?presenter=<key>` to take control; the key is
+remembered in this browser and removed from the address bar. Without it the
+deck is a read-only viewer. Press `?` for all reveal.js shortcuts.
