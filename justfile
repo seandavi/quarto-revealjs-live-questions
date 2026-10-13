@@ -41,7 +41,7 @@ docker-build:
 
 # Run the Docker image (PRESENTER_KEY defaults to "dev")
 docker-run:
-    docker run --rm -p 8787:8787 -e PRESENTER_KEY=${PRESENTER_KEY:-dev} -v "$PWD/data:/data" quarto-live-poll
+    docker run --rm -p 8787:8787 -e PRESENTER_KEY=${PRESENTER_KEY:-dev} -v live-poll-data:/data quarto-live-poll
 
 # Render the example deck
 render: build

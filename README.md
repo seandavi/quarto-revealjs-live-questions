@@ -18,7 +18,7 @@ Behavior and design decisions are in [SPEC.md](SPEC.md); the wire protocol is
 ## Install
 
 ```bash
-quarto add <github-org>/quarto-live-poll
+quarto add seandavi/quarto-live-poll
 ```
 
 This installs `_extensions/live-poll/` (a Lua filter plus a revealjs plugin).
@@ -110,9 +110,46 @@ clicking one brings it back.
 
 ## Server
 
-_To be completed by the integrator: deploying to Cloudflare
-(`wrangler deploy`, `wrangler secret put PRESENTER_KEY`) and running the
-Docker image. See the `justfile` and SPEC.md "Deployment"._
+The deck talks to a small server that holds the votes. Run it on Cloudflare
+or in Docker; both run the same code, so they behave the same. Either way,
+pick a long random presenter key: anyone holding it can run your questions.
+
+### Cloudflare (Worker + Durable Object)
+
+Runs on the Workers free plan. Each session is one Durable Object, which
+sleeps between questions.
+
+```bash
+bun install
+bunx wrangler login
+bunx wrangler secret put PRESENTER_KEY
+just deploy                # bunx wrangler deploy
+```
+
+Wrangler prints the URL (`https://live-poll.<account>.workers.dev`); use it as
+`server:` in `_quarto.yml`. To run it locally, copy `.dev.vars.example` to
+`.dev.vars` and run `just dev-cf`.
+
+### Docker
+
+```bash
+cp .env.example .env       # set PRESENTER_KEY
+docker compose up -d --build
+```
+
+The container listens on 8787 and keeps results in the `live-poll-data`
+volume. `compose.yaml` has commented Traefik labels for running it behind a
+reverse proxy with TLS. Phones on the venue network have to reach this
+server, so expose it over HTTPS on a public host name for real talks.
+
+### Checking a server
+
+```bash
+curl https://<server>/healthz                    # ok
+just smoke https://<server> <PRESENTER_KEY>      # full protocol round trip
+curl -H "Authorization: Bearer <PRESENTER_KEY>" \
+  https://<server>/api/s/<session>/export        # all results as JSON
+```
 
 ## Development
 
