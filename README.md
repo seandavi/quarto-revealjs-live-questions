@@ -398,6 +398,19 @@ bunx wrangler secret put PRESENTER_KEY
 bunx wrangler deploy          # or: just deploy
 ```
 
+The Worker answers at `https://live-questions.<account>.workers.dev`. To
+serve it from your own host name instead, deploy with a custom domain; the
+domain's zone must be on the same Cloudflare account, and Cloudflare creates
+the DNS record and certificate:
+
+```bash
+just deploy live-questions.example.org
+# same as: bunx wrangler deploy --domain live-questions.example.org
+```
+
+The domain is passed on the command line rather than written into
+`wrangler.jsonc`, so a fork of this repository doesn't try to claim yours.
+
 To run it locally, copy `.dev.vars.example` to `.dev.vars` and run
 `bunx wrangler dev` (`just dev-cf`).
 

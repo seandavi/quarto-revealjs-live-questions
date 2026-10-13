@@ -31,9 +31,11 @@ dev-cf:
 smoke base="http://localhost:8787" key="dev":
     bun scripts/smoke.ts {{base}} {{key}}
 
-# Deploy the Worker to Cloudflare
-deploy:
-    bunx wrangler deploy
+# Deploy the Worker to Cloudflare, optionally on a custom domain
+# (e.g. `just deploy live-questions.example.org`; the zone must be on your
+# Cloudflare account). Kept out of wrangler.jsonc so forks don't inherit it.
+deploy domain="":
+    bunx wrangler deploy {{ if domain != "" { "--domain " + domain } else { "" } }}
 
 # Build the Docker image
 docker-build:
