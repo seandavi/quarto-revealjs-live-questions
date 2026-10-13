@@ -1,0 +1,33 @@
+# docker compose up -d --build
+# Put the presenter key in .env (gitignored; see .env.example):
+#   PRESENTER_KEY=some-long-random-string
+services:
+  live-poll:
+    build: .
+    image: quarto-live-poll
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      PORT: "8787"
+      DATA_DIR: /data
+    ports:
+      - "8787:8787"
+    volumes:
+      - live-poll-data:/data
+    # Behind Traefik instead of a published port (drop `ports:` above).
+    # WebSockets need no extra Traefik configuration.
+    # labels:
+    #   - traefik.enable=true
+    #   - traefik.http.routers.live-poll.rule=Host(`poll.example.org`)
+    #   - traefik.http.routers.live-poll.entrypoints=websecure
+    #   - traefik.http.routers.live-poll.tls.certresolver=letsencrypt
+    #   - traefik.http.services.live-poll.loadbalancer.server.port=8787
+    # networks:
+    #   - traefik
+
+volumes:
+  live-poll-data:
+
+# networks:
+#   traefik:
+#     external: true
