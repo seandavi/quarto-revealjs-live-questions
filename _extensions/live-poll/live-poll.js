@@ -2124,7 +2124,10 @@
           this.hist.push({ bars, counts, mean, stats, n: count });
         }
       }
-      this.el = h("div", { class: `lp-likert ${q.numeric ? "lp-lk-numeric" : "lp-lk-labeled"}`, attrs: { "data-statements": String(q.statements.length) } }, this.legend(), rows);
+      this.el = h("div", {
+        class: `lp-likert ${q.numeric ? "lp-lk-numeric" : "lp-lk-labeled"}${n <= 3 ? " lp-lk-short" : ""}`,
+        attrs: { "data-statements": String(q.statements.length) }
+      }, this.legend(), rows);
       this.el.style.setProperty("--lp-points", String(n));
     }
     legend() {

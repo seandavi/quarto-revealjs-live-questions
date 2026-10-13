@@ -185,7 +185,11 @@ export class LikertChart {
 
     this.el = h(
       "div",
-      { class: `lp-likert ${q.numeric ? "lp-lk-numeric" : "lp-lk-labeled"}`, attrs: { "data-statements": String(q.statements.length) } },
+      {
+        // With one point per side, the side totals would repeat the segment percentages.
+        class: `lp-likert ${q.numeric ? "lp-lk-numeric" : "lp-lk-labeled"}${n <= 3 ? " lp-lk-short" : ""}`,
+        attrs: { "data-statements": String(q.statements.length) },
+      },
       this.legend(),
       rows,
     );

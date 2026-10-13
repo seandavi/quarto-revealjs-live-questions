@@ -282,6 +282,7 @@ html[data-lp-tone="dark"] .lp-question {
   font-variant-numeric: tabular-nums;
 }
 .lp-lk-neg { text-align: right; }
+.lp-lk-short .lp-lk-total { visibility: hidden; }
 .lp-lk-track {
   position: relative;
   height: var(--lp-bar-h, 1.55em);
