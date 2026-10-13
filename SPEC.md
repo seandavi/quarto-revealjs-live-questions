@@ -383,6 +383,11 @@ decks are usually served from a different origin than the server.
 4. The matching key is the lowercased result. The display text is the first
    spelling the room saw.
 
+Truncation in step 3 is a server-side backstop. The audience page refuses an
+answer with more than `maxWords` words and asks the voter to shorten it, so
+"confusing at times" never lands in a two-word cloud as "confusing at". The
+same `src/shared/normalize.ts` runs on both sides.
+
 ## Deployment
 
 ### Cloudflare
@@ -451,6 +456,9 @@ decks are usually served from a different origin than the server.
 | Durable Object per session | Serverless functions (Vercel, Netlify) can't keep WebSockets open, so similar projects add Pusher or Ably, or poll. A Durable Object holds the sockets and the state in one place, hibernates when idle, and fits in the free plan. |
 | Room core with no I/O, plus two thin adapters | Every behavior rule is tested once and shared. The adapters only move bytes. This was preferred over running `workerd` inside Docker, which would be a single codebase but harder to operate and debug. |
 | Hono for routing only | It lets one route table run on Workers and on Node. WebSockets stay runtime-specific because Hono's Cloudflare WebSocket helper bypasses the Durable Object hibernation API. |
+| Connection logic in a shared `Hub`, with each runtime implementing a small `HubHost` | The hello/auth, size limits, rate limiting, coalesced broadcasts and persistence timing are identical on both runtimes, so they live once in `src/server/hub.ts` and are unit-tested there. Each runtime only lists sockets, sends, stores per-socket info and persists. |
+| Node WebSockets via `@hono/node-server` v2's built-in support (`ws`), not `@hono/node-ws` | `@hono/node-ws` only declares support for node-server v1. Using `ws` directly also enforces the message-size cap at the socket. |
+| Per-socket state in `serializeAttachment`, not hibernation tags | Tags are fixed when the socket is accepted, but role and voter only arrive later in `hello`. |
 | Session URL that follows the deck | The audience scans once per talk. A per-question QR code would make everyone rescan for every question. |
 | Presenter key passed in the URL and kept in `localStorage`, never in the HTML | A published deck is safe to share, and only the presenter's browser controls questions. |
 | Lua filter parses the markup | The plugin JS never reads markdown, and PDF and other non-HTML renders degrade to a plain list. |
