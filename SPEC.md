@@ -2,7 +2,8 @@
 
 Live audience questions for Quarto revealjs decks. Multiple-choice questions
 render as a live bar chart; short-answer questions render as a live word
-cloud. When the presenter reaches a question slide, the question opens, a QR
+cloud; rating-scale (likert) questions render as diverging stacked bars or,
+for numeric scales, small histograms. When the presenter reaches a question slide, the question opens, a QR
 code points the audience at a voting page, and results update in real time.
 
 The backend runs on Cloudflare (Worker + Durable Object) or as a Docker
@@ -18,7 +19,7 @@ covers behavior and the decisions behind it.
 presenter deck (Quarto revealjs)               audience phones
  live-poll.lua   markup -> question JSON        /s/<session>  voting page
  live-poll.js    slide change -> open question,      |
-                 QR code, live bars / word cloud     | WebSocket
+                 QR code, live bars / cloud / likert | WebSocket
        | WebSocket                                   |
        +------------> one room per session <---------+
                       Cloudflare: Worker + Durable Object (SQLite storage)
@@ -119,15 +120,59 @@ To mark correct answers, use task-list syntax. A question with at least one
 :::
 ```
 
+### Rating scale (likert)
+
+List items are *statements*, all rated on one shared, ordered scale (1 to
+`LIMITS.likertStatements` = 6 statements).
+
+```markdown
+## How did today go?
+
+::: {.likert #feedback scale="agree-5"}
+- The pace of today's lecture was right
+- The examples helped
+- I could follow the live coding
+:::
+
+## How confident are you running a t-test in R?
+
+::: {.likert #confidence scale="0-10" low="Not at all" high="Completely"}
+:::
+
+::: {.likert #speed labels="Too slow|Just right|Too fast"}
+- Pace of today's lecture
+:::
+```
+
+| Scale | Points |
+|---|---|
+| `agree-5` (default) | Strongly disagree, Disagree, Neutral, Agree, Strongly agree |
+| `agree-7` | Strongly disagree, Disagree, Somewhat disagree, Neutral, Somewhat agree, Agree, Strongly agree |
+| `"<min>-<max>"`, e.g. `0-10`, `1-5` | Numeric: the integers from min to max, 2 to 11 points. `low=` / `high=` optionally name the ends. |
+| `labels="a\|b\|c"` | Custom: 2 to 11 labels separated by `\|`, ordered low to high. Overrides `scale=`. |
+
+A labeled scale (preset or custom) with an odd number of points has a
+neutral middle point; an even one has none. Numeric scales are never split
+at a neutral point; they are summarized by mean and median instead.
+
+**Single statement.** Without a list, the question has one statement: the
+prompt itself (attribute, div text or heading, as below). Neither the slide
+nor the phones repeat a statement that is identical to the prompt, so the
+heading-only form reads as one question with one row of buttons. A
+one-item list keeps its item as a visible statement under the prompt.
+
 ### Question attributes
 
 | Attribute | Applies to | Default | Meaning |
 |---|---|---|---|
-| `#id` | both | `q-` + first 10 hex digits of SHA-1 of prompt and options | Question id on the server. Give one explicitly: editing the question changes a generated id, and its old results stay behind under the old id. |
-| `prompt="..."` | both | see below | Overrides the prompt text sent to phones. |
-| `results=` | both | config `results` | Per-question override. |
+| `#id` | all | `q-` + first 10 hex digits of SHA-1 of prompt and options (and scale labels) | Question id on the server. Give one explicitly: editing the question changes a generated id, and its old results stay behind under the old id. |
+| `prompt="..."` | all | see below | Overrides the prompt text sent to phones. |
+| `results=` | all | config `results` | Per-question override. |
 | `max-words=` | wordcloud | 3 | Words kept per answer. |
 | `max-answers=` | wordcloud | 3 | Answers per person. |
+| `scale=` | likert | `agree-5` | Preset or numeric range (table above). |
+| `labels=` | likert | none | Custom scale labels, `\|`-separated, low to high. |
+| `low=`, `high=` | likert, numeric scales | none | Words for the two ends, e.g. "Not at all" and "Completely". Ignored (with a warning) on labeled scales. |
 
 The prompt sent to phones is, in order: the `prompt` attribute; else any
 non-list text inside the div; else the text of the nearest preceding heading.
@@ -136,17 +181,24 @@ non-list text inside the div; else the text of the nearest preceding heading.
 
 - Runs only for revealjs output. For any other format the div is left as a
   plain list.
-- Replaces each `.poll` / `.wordcloud` div with a container
-  `div.lp-question.lp-poll` (or `.lp-wordcloud`) carrying the same id and a
-  `data-lp` JSON attribute: the `Question` definition plus `correct` (option
-  indices, poll only, omitted if none) and `results`. Inside it keeps the
-  original list, with task-list markers stripped, as the static fallback and
-  as the source of the option labels' HTML.
+- Replaces each `.poll` / `.wordcloud` / `.likert` div with a container
+  `div.lp-question.lp-poll` (or `.lp-wordcloud`, `.lp-likert`) carrying the
+  same id and a `data-lp` JSON attribute: the `Question` definition plus
+  `correct` (option indices, poll only, omitted if none) and `results`.
+  Inside it keeps the original list, with task-list markers stripped, as the
+  static fallback and as the source of the option (or statement) labels'
+  HTML. A likert question also gets a `div.lp-scale-note` paragraph naming
+  its scale, shown only in static mode and other formats.
+- Resolves likert presets into explicit `labels` (and `numeric`, `anchors`),
+  so the deck and server never need to know preset names.
 - Writes the resolved config as JSON into
   `<script type="application/json" id="lp-config">` (in the document head).
 - Warns (via `quarto.log.warning`) about duplicate ids, polls with fewer than
   two options, and values outside `LIMITS`. Out-of-range `max-words` /
-  `max-answers` are clamped; over-long prompts and options are truncated.
+  `max-answers` are clamped; over-long prompts, options, statements and
+  scale labels are truncated. An unknown `scale=`, a range outside 2 to 11
+  points, or fewer than 2 `labels=` falls back to `agree-5`. Task-list
+  markers in a likert list are ignored with a warning.
 
 As built, for example:
 
@@ -160,6 +212,13 @@ As built, for example:
 <div id="mood" class="lp-question lp-wordcloud"
      data-lp='{"type":"wordcloud","id":"mood","prompt":"One word for today’s lecture?",
                "maxWords":2,"maxAnswers":3,"results":"live"}'></div>
+<div id="confidence" class="lp-question lp-likert"
+     data-lp='{"type":"likert","id":"confidence","prompt":"How confident are you running a t-test in R?",
+               "statements":["How confident are you running a t-test in R?"],
+               "labels":["0","1","2","3","4","5","6","7","8","9","10"],"numeric":true,
+               "anchors":["Not at all","Completely"],"results":"live"}'>
+  <div class="lp-scale-note">…</div>
+</div>
 
 <script type="application/json" id="lp-config">
 {"server":"http://localhost:8787","session":"example","closeOnLeave":true,"results":"live","qr":true}
@@ -169,7 +228,9 @@ As built, for example:
 - `correct` holds 0-based option indices. `server` is omitted when not
   configured (trailing slashes are stripped).
 - The generated id is `q-` + the first 10 hex digits of
-  `sha1(prompt .. "\n" .. options joined by "\n")`.
+  `sha1(prompt .. "\n" .. options joined by "\n")`; for likert, the
+  statements take the options' place and `"\n" .. labels joined by "|"` is
+  appended.
 - The default session is the input file stem with characters outside
   `[A-Za-z0-9_-]` replaced by `-` (runs collapsed, leading and trailing `-`
   dropped, cut to 64 characters).
@@ -213,13 +274,16 @@ opens it is a viewer.
   through a network blip. Likewise, if the presenter is on a slide without a
   question and the last question it opened is still open, it sends `close`.
 - If a slide holds more than one question, the first one is the one opened.
+- Likert questions follow the same lifecycle: phones rate while the question
+  is open, results are withheld from phones until it closes, and leaving the
+  slide closes it.
 
 ### Keys and controls
 
 | Key | Action |
 |---|---|
 | `Q` | Toggle a full-screen QR overlay ("everyone scan this"). |
-| `A` | Reveal the correct answer of the current poll (also closes voting). |
+| `A` | Reveal the correct answer of the current poll (also closes voting). On a likert slide it only shows a "Rating scales have no answer to reveal" toast. |
 | `T` | Toggle results visibility on the current slide (the `results: hidden` workflow). |
 
 Reveal and Quarto already use H/J/K/L, N, P, B, V, F, O, S, G, M, E, R and
@@ -262,6 +326,32 @@ on), so the component works on light and dark themes.
   mode, clicking a word hides it (moderation). Hidden words are listed in a
   presenter-only tray, where clicking one restores it.
 
+- **Likert, labeled scale**: one diverging stacked bar per statement with the
+  statement text above it and its response count to the right. The bar is
+  centered on the neutral point: a neutral segment is split half each side
+  of the center line, lower points stack to the left, higher points to the
+  right. The share below and above the middle is printed outside each end
+  (omitted on 2- and 3-point scales, where it would repeat the segment), each
+  segment shows its percentage when it is wide enough, and a legend above
+  lists the scale labels. All statements share one axis; its two sides are
+  scaled independently (to the widest reach on each side, rounded up to 10%)
+  so a lopsided result uses the whole width. The center line shows as ticks
+  above and below each bar. Segments animate their position and width.
+- **Likert, numeric scale**: one histogram per statement, a column per scale
+  point (heights relative to the tallest column of the question), counts
+  above the columns, a pointer under the baseline at the mean, and
+  "mean x · median y" plus the response count in the statement's header.
+  With 4 or more statements only the last histogram repeats the scale
+  numbers. `low=`/`high=` anchors appear in the legend.
+- **Likert palette**: a fixed red (low) / gray (neutral) / blue (high)
+  diverging palette, five steps per arm, rather than the theme's link color
+  (which may itself be red or orange). The plugin measures the luminance of
+  `--r-background-color` and sets `data-lp-tone="dark"` on dark themes,
+  which swap in steps chosen for a dark surface (brighter toward the ends).
+  Text on every step has at least 4.5:1 contrast. The bar and text sizing
+  shrinks (to 60% at most) like the bar chart; 1 to 6 statements fit a
+  1050×700 slide with a heading and the QR panel.
+
 The QR code comes from `qrcode-generator`, bundled into `live-poll.js`; there
 are no CDN requests.
 
@@ -274,8 +364,21 @@ are no CDN requests.
 - States: connecting; waiting for a question; poll open (large option buttons,
   current choice highlighted, the vote can be changed while open); word cloud
   open (text input, the voter's submitted answers as chips, answers remaining);
-  closed (results as bars or a ranked word list, correct options highlighted
-  if revealed); offline (auto-reconnect with backoff).
+  likert open (below); closed (results as bars, a ranked word list, or one
+  histogram per likert statement with the voter's own rating outlined and a
+  "You: Agree" tag; correct options highlighted if revealed); offline
+  (auto-reconnect with backoff).
+- Likert open: one card per statement with the statement text, a row of
+  segmented scale buttons (48 px tall) and the scale's end labels underneath
+  (plus the neutral label, centered, on odd labeled scales). Labeled scales
+  tint each button with the slide's palette color for that point and show
+  the chosen label beside the statement; numeric scales show the numbers and
+  "0 = Not at all … 10 = Completely" (or "lowest"/"highest" without
+  anchors). Scales with 8 or more points wrap onto two rows below 460 px, so
+  an 11-point scale fits a 360 px phone without horizontal scrolling. A
+  rating can be changed while voting is open; a progress line reads "2 of 3
+  rated" (or "Rating saved: Agree" for one statement). Ratings are sent
+  optimistically and restored from `you` after a reload.
 - Follows the deck: phones switch to whatever question is live, so the
   audience scans once per talk.
 - All server-provided text is rendered with `textContent`, never `innerHTML`.
@@ -316,7 +419,11 @@ decks are usually served from a different origin than the server.
 - Validation copies only known fields, so anything extra a deck sends in a
   question (for example `correct` or `results` from `data-lp`) is dropped and
   never stored or broadcast. Polls need 1 to `LIMITS.pollOptions` options;
-  word clouds missing `maxWords`/`maxAnswers` get `DEFAULTS`.
+  word clouds missing `maxWords`/`maxAnswers` get `DEFAULTS`. Likert
+  questions need 1 to `LIMITS.likertStatements` statements and 2 to
+  `LIMITS.likertPoints` labels; a numeric scale's labels must be consecutive
+  integers, low to high; a missing `numeric` means false, and `anchors` is
+  kept only on numeric scales (null otherwise).
 - Maximum message size: 4 KB from audience sockets, 32 KB from deck sockets.
   Larger messages get a `bad-message` error.
 - Rate limit per audience socket: token bucket, burst 20, refill 5 per second.
@@ -348,27 +455,39 @@ decks are usually served from a different origin than the server.
   show its results.
 - `reveal`: polls only, with indices in range. Stores `revealed` and closes
   the question.
+- A likert definition differs when its statements, labels, `numeric` or
+  `anchors` differ; as for other types, `open` with a changed definition
+  clears its ratings and every phone gets a fresh `you`.
 - `reset {id}`: clear that question's votes, answers, reveal and hidden set;
   status is unchanged. `reset {}`: drop all questions and set `live = null`.
 - `hide`: word clouds only. Normalizes `text` and adds it to or removes it
   from the hidden set.
+- `reset` and a definition change clear likert ratings like votes and
+  answers.
 - `vote`: requires `id === live` and status `open`, and `choice` must be an
   integer in range. Last vote wins.
+- `rate`: requires `id === live` and status `open`, a likert question, and
+  `statement` and `choice` integers in range. The last rating per statement
+  wins; re-sending the current rating is a no-op. Unrated statements are
+  `null` in `Mine.ratings`.
 - `answer`: requires `id === live` and status `open`. The text is normalized
   (below); an empty result is `bad-message`. Re-submitting an answer the voter
   already gave is a no-op. A new answer beyond `maxAnswers` is `limit`.
 - A word cloud's word count is the number of distinct voters who submitted
   that normalized answer. `voters` counts distinct voters with at least one
-  vote or answer.
+  vote, answer or rating. Likert results are `counts[statement][point]`.
 - `AudienceState.live.results` is `null` while the question is open, and so is
   `AudienceState.live.revealed` (re-opening a revealed question, e.g. when the
   deck reloads on that slide, must not show phones the answer mid-vote).
 - Error codes: a question id the room doesn't know is `unknown-question`; a
   `vote`/`answer` for a known question that is not live and open is `closed`;
-  `reveal` on a word cloud, `hide` on a poll, a vote on a word cloud (or an
-  answer to a poll) and out-of-range indices are `bad-message`; presenter
-  messages without presenter rights, and `vote`/`answer` from a deck socket,
-  are `forbidden`.
+  `reveal` on anything but a poll, `hide` on anything but a word cloud, a
+  vote, answer or rating for the wrong question type, and out-of-range
+  indices are `bad-message`; presenter messages without presenter rights,
+  and `vote`/`answer`/`rate` from a deck socket, are `forbidden`.
+- Stored rooms from before likert existed load unchanged (`ratings` is
+  optional in `RoomData`); `Mine.ratings` is new in protocol v1 and older
+  clients ignore it.
 
 ### Answer normalization
 
@@ -424,12 +543,15 @@ same `src/shared/normalize.ts` runs on both sides.
   the rate limiter.
 - **Smoke**: `bun scripts/smoke.ts <base-url> <key>` drives a presenter and
   several audience sockets through a poll (votes, vote change, close,
-  rejected late vote, reveal) and a word cloud (normalization, duplicates,
-  limit, hide), and checks that export requires the key. It runs against the
+  rejected late vote, reveal), a word cloud (normalization, duplicates,
+  limit, hide) and a likert question (ratings, rating change, out-of-range
+  and wrong-type messages, reveal/hide rejected, rejected late rating), and
+  checks that export requires the key and includes ratings. It runs against the
   Node server, `wrangler dev` and the Docker image.
 - **Manual**: `bun scripts/presenter.ts <base> <key> <session> <command>`
-  plays presenter (open, close, reveal, reset) and simulates phones (votes,
-  answers) without a deck. Audience page screenshots for every state, light
+  plays presenter (open polls, word clouds and likert questions; close,
+  reveal, reset) and simulates phones (votes, answers, ratings) without a
+  deck. Audience page screenshots for every state, light
   and dark, are in `docs/screenshots/`.
 - **Deck**: render `example.qmd` and screenshot static mode with Playwright.
 - **End to end**: a local server plus the rendered deck as presenter and the
@@ -464,10 +586,14 @@ same `src/shared/normalize.ts` runs on both sides.
 | Lua filter parses the markup | The plugin JS never reads markdown, and PDF and other non-HTML renders degrade to a plain list. |
 | Task-list `[x]` marks correct answers | It's native Pandoc syntax that reads naturally in source. A plain list means a poll with no right answer. |
 | Results hidden from phones while voting is open | Avoids bandwagon voting. The projected slide can also hide them (`results: hidden`). |
+| Likert is its own question type, not a poll variant | A rating question has several statements on one shared scale (a poll has one), it needs a different chart (diverging bars centered on neutral, or histograms with a mean) and a different phone layout, and its scale comes from presets. A poll per statement would make the audience answer N separate questions with N slide changes, and the deck could not show the statements side by side. |
+| Likert presets resolved in the Lua filter | The server and phones see only explicit labels and a `numeric` flag, so new presets need no server change and old servers keep working. |
+| Likert phone layout: segmented buttons with end labels, not stacked full-label buttons | Stacked full-label lists are clearest for one statement, but six statements on a 7-point scale become 42 rows and several screens of scrolling. A segmented row keeps each statement to one card; the end (and neutral) labels anchor the direction, the button tints match the slide's colors, and the chosen label appears beside the statement so middle points like "Somewhat agree" are never ambiguous. Each button carries its full label for screen readers. |
 | QR library bundled, no CDN | Decks work on venue Wi-Fi with captive portals or blocked CDNs, and the only network dependency is the server itself. |
 
 ## Out of scope for v1
 
-CSV export, multi-select polls, profanity filtering, per-IP rate limits,
+CSV export, multi-select polls, likert scales with negative numeric ranges
+in the markup (the protocol allows them), profanity filtering, per-IP rate limits,
 automatic session expiry, multiple presenter keys or accounts, and a results
 archive page.
