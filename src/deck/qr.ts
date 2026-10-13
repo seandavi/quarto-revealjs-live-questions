@@ -13,7 +13,7 @@ export function qrSvg(text: string, label: string): SVGSVGElement {
   qr.addData(text);
   qr.make();
   const n = qr.getModuleCount();
-  const margin = 2;
+  const margin = 3; // with the white card padding this gives the standard 4-module quiet zone
   const size = n + margin * 2;
 
   let d = "";

@@ -1831,7 +1831,7 @@
     qr.addData(text);
     qr.make();
     const n = qr.getModuleCount();
-    const margin = 2;
+    const margin = 3;
     const size = n + margin * 2;
     let d = "";
     for (let row = 0;row < n; row++) {
