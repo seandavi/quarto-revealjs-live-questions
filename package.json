@@ -1,6 +1,6 @@
 {
   "name": "quarto-live-poll",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": true,
   "type": "module",
   "description": "Live polls and word clouds for Quarto revealjs decks, with a Cloudflare or Docker backend",
