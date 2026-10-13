@@ -115,13 +115,33 @@ local function results_mode(v, where)
   return "live"
 end
 
-local function read_config(meta)
-  local m = meta["live-questions"]
-  if m ~= nil and type(m) ~= "table" then
-    warn("`live-questions:` should be a map of options")
-    m = nil
+--- The options map, read from `extensions: live-questions:` (the form Quarto
+--- Wizard completes) and from top-level `live-questions:`. A key set in both
+--- places takes the top-level value.
+local function options_map(meta)
+  local function as_map(v, name)
+    if v == nil then return {} end
+    if pandoc.utils.type(v) ~= "table" then
+      warn(("`%s:` should be a map of options"):format(name))
+      return {}
+    end
+    return v
   end
-  m = m or {}
+
+  local ext = meta.extensions
+  local nested = nil
+  if ext ~= nil and pandoc.utils.type(ext) == "table" then
+    nested = ext["live-questions"]
+  end
+
+  local m = {}
+  for k, v in pairs(as_map(nested, "extensions: live-questions")) do m[k] = v end
+  for k, v in pairs(as_map(meta["live-questions"], "live-questions")) do m[k] = v end
+  return m
+end
+
+local function read_config(meta)
+  local m = options_map(meta)
 
   local server = meta_string(m.server)
   if server and server ~= "" then

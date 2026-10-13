@@ -272,6 +272,14 @@ fewer than two options and out-of-range values.
 ### Options
 
 Set these under `live-questions:` in the document front matter or `_quarto.yml`.
+`extensions: live-questions:` works too; if a key is set in both places, the
+top-level `live-questions:` value wins.
+
+```yaml
+extensions:
+  live-questions:
+    server: https://live-questions.example.workers.dev
+```
 
 | Key | Default | Meaning |
 |---|---|---|
