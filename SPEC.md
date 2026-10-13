@@ -420,8 +420,8 @@ same `src/shared/normalize.ts` runs on both sides.
 
 ## Testing
 
-- **Unit**: `bun test`. Covers the room rules, normalization, validation and
-  the rate limiter.
+- **Unit**: `bun test`. Covers the room rules, normalization, validation,
+  the rate limiter, the connection hub and the word-cloud layout.
 - **Smoke**: `bun scripts/smoke.ts <base-url> <key>` drives a presenter and
   several audience sockets through a poll (votes, vote change, close,
   rejected late vote, reveal) and a word cloud (normalization, duplicates,
@@ -429,12 +429,17 @@ same `src/shared/normalize.ts` runs on both sides.
   Node server, `wrangler dev` and the Docker image.
 - **Manual**: `bun scripts/presenter.ts <base> <key> <session> <command>`
   plays presenter (open, close, reveal, reset) and simulates phones (votes,
-  answers) without a deck. Audience page screenshots for every state, light
-  and dark, are in `docs/screenshots/`.
+  answers) without a deck.
 - **Deck**: render `example.qmd` and screenshot static mode with Playwright.
 - **End to end**: a local server plus the rendered deck as presenter and the
   audience page in a phone viewport. Vote, then check that the slide's bars
-  and word cloud update and that the QR code encodes the audience URL.
+  and word cloud update and that the QR code encodes the audience URL. The
+  screenshots in `docs/screenshots/` were taken this way.
+- **CI** (`.github/workflows/ci.yml`): type check and unit tests, the
+  committed deck bundle matches a fresh build, the Node smoke test, a
+  `wrangler deploy --dry-run` bundle of the Worker, a Quarto render of
+  `example.qmd`, and a Docker build with the smoke test against the
+  container.
 
 ## Security model and known limits
 

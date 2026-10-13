@@ -1,0 +1,36 @@
+name: Feature request
+description: Suggest a change or a new capability.
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please check SPEC.md ("Out of scope for v1" and "Decisions") first;
+        it may explain why something works the way it does.
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What are you trying to do in a talk or class, and what gets in the way today?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What you would like
+      description: How it could work, including how you would write it in the .qmd if it changes authoring.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives you considered
+  - type: checkboxes
+    id: impact
+    attributes:
+      label: This would need
+      description: Tick what you think applies; it helps judge the size of the change.
+      options:
+        - label: A change to the wire protocol (deck, phones and server must agree)
+        - label: A server change (Room core, Cloudflare or Docker)
+        - label: A change to the question markup

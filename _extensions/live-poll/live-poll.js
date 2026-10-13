@@ -1,4 +1,6 @@
+/*! live-poll | MIT | https://github.com/seandavi/quarto-live-poll | includes qrcode-generator, (c) 2009 Kazuhiko Arase, MIT: see THIRD_PARTY_NOTICES.md */
 (() => {
+
   // src/shared/protocol.ts
   var PROTOCOL_VERSION = 1;
   var LIMITS = {
