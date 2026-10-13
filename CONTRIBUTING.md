@@ -13,8 +13,7 @@ not in a public issue.
 You need:
 
 - [Bun](https://bun.sh) 1.3 or later (package manager, bundler, test runner)
-- [Quarto](https://quarto.org) 1.4 or later (the extension is developed and
-  tested with 1.9)
+- [Quarto](https://quarto.org) 1.9 or later (tested with 1.9 and 1.10)
 - [just](https://github.com/casey/just) (optional; every recipe is a short
   command you can run by hand)
 - Node.js 22 or later for Wrangler (the built Node server itself runs on

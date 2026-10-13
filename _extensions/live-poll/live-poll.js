@@ -1942,7 +1942,7 @@
     const url = new URL(window.location.href);
     if (!url.searchParams.has("presenter"))
       return;
-    const value = url.searchParams.get("presenter") ?? "";
+    const value = rawParam(url.search, "presenter");
     url.searchParams.delete("presenter");
     window.history.replaceState(window.history.state, "", url.toString());
     if (!server || !store)
@@ -1956,6 +1956,21 @@
       else
         s.setItem(storageKey(server), value);
     } catch {}
+  }
+  function rawParam(search, name) {
+    for (const part of search.replace(/^\?/, "").split("&")) {
+      const eq = part.indexOf("=");
+      const key = eq < 0 ? part : part.slice(0, eq);
+      if (key !== name)
+        continue;
+      const value = eq < 0 ? "" : part.slice(eq + 1);
+      try {
+        return decodeURIComponent(value);
+      } catch {
+        return value;
+      }
+    }
+    return "";
   }
   function storedKey(server) {
     try {

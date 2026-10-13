@@ -5,7 +5,7 @@ written in Quarto markdown and backed by a small server you run yourself.
 
 [![CI](https://github.com/seandavi/quarto-live-poll/actions/workflows/ci.yml/badge.svg)](https://github.com/seandavi/quarto-live-poll/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Quarto >= 1.4](https://img.shields.io/badge/Quarto-%E2%89%A5%201.4-39729e.svg)](https://quarto.org)
+[![Quarto >= 1.9](https://img.shields.io/badge/Quarto-%E2%89%A5%201.9-39729e.svg)](https://quarto.org)
 [![Cloudflare Workers](https://img.shields.io/badge/server-Cloudflare%20Workers-f38020.svg)](#cloudflare-worker--durable-object)
 [![Docker](https://img.shields.io/badge/server-Docker-2496ed.svg)](#docker)
 
@@ -247,8 +247,8 @@ The server has one secret, `PRESENTER_KEY`. Open the deck once with
 - A private or incognito window forgets the key when it closes, and a
   different browser or computer needs `?presenter=` again. Do a dry run on
   the machine you will present from.
-- Use a key made of URL-safe characters (`openssl rand -hex 24` works). A
-  `+` in a query string is read as a space.
+- Use a key made of URL-safe characters (`openssl rand -hex 24` works).
+  `&`, `#` and `%` would need percent-encoding in the URL.
 - If the key is wrong, the deck shows "Presenter key not accepted: viewing
   only".
 
