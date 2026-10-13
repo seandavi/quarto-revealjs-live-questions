@@ -1,0 +1,3 @@
+# Copy to .dev.vars for `wrangler dev` (it is gitignored).
+# In production: bunx wrangler secret put PRESENTER_KEY
+PRESENTER_KEY=dev

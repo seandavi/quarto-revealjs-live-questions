@@ -1,0 +1,7 @@
+# Keep the build context to what the image needs.
+*
+!package.json
+!bun.lock
+!src/
+!public/
+public/vote.js

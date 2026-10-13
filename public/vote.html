@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="theme-color" content="#f3f5fa" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#0f1524" media="(prefers-color-scheme: dark)" />
+    <meta name="referrer" content="no-referrer" />
+    <title>Live poll</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='4' y='17' width='6' height='11' rx='2' fill='%232d5be3'/%3E%3Crect x='13' y='6' width='6' height='22' rx='2' fill='%23ffd21f'/%3E%3Crect x='22' y='12' width='6' height='16' rx='2' fill='%232d5be3'/%3E%3C/svg%3E" />
+    <link rel="stylesheet" href="/vote.css" />
+    <script src="/vote.js" defer></script>
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="session" id="session" href="/" aria-label="Change session"></a>
+      <span class="conn" id="conn" data-state="connecting" role="status">
+        <span class="conn-dot" aria-hidden="true"></span><span class="conn-text">Connecting</span>
+      </span>
+    </header>
+    <main id="main" class="main" tabindex="-1">
+      <section class="view view-center">
+        <div class="pulse" aria-hidden="true"></div>
+        <p class="lead">Connecting to the session…</p>
+      </section>
+    </main>
+    <div class="toast" id="toast" role="alert" aria-live="assertive"></div>
+    <noscript><p class="noscript">This page needs JavaScript to send your answers.</p></noscript>
+  </body>
+</html>
