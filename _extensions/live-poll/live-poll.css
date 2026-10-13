@@ -144,6 +144,269 @@
 .lp-row.lp-dim { opacity: 0.5; }
 .lp-row.lp-dim .lp-fill { background: color-mix(in srgb, var(--lp-fg) 30%, var(--lp-bg)); }
 
+/* ---- likert ------------------------------------------------------------------------ */
+
+/*
+ * Diverging palette: blue (agree, high) against red (disagree, low) with a
+ * gray neutral, five steps per arm from light (near the middle) to strong
+ * (the ends). Fixed hues rather than the theme's link color, which may itself
+ * be red or orange. The plugin sets data-lp-tone="dark" on dark themes, which
+ * swap in steps chosen for a dark surface. Each step's ink (text) color has
+ * at least 4.5:1 contrast against it.
+ */
+.lp-question {
+  --lp-ink-dark: #16181d;
+  --lp-ink-light: #ffffff;
+  --lp-neg-1: #f8cfc4; --lp-neg-2: #f09a84; --lp-neg-3: #dc5a3c; --lp-neg-4: #b23f27; --lp-neg-5: #842a1a;
+  --lp-pos-1: #c6dcf8; --lp-pos-2: #86b6ef; --lp-pos-3: #3987e5; --lp-pos-4: #1f63b8; --lp-pos-5: #104281;
+  --lp-mid: #dcdbd6;
+  --lp-ink-1: var(--lp-ink-dark); --lp-ink-2: var(--lp-ink-dark); --lp-ink-3: var(--lp-ink-dark);
+  --lp-ink-4: var(--lp-ink-light); --lp-ink-5: var(--lp-ink-light);
+  --lp-ink-mid: var(--lp-ink-dark);
+}
+html[data-lp-tone="dark"] .lp-question {
+  --lp-neg-1: #6b2618; --lp-neg-2: #9b3822; --lp-neg-3: #d4553a; --lp-neg-4: #ec8f78; --lp-neg-5: #f7c4b6;
+  --lp-pos-1: #1d426f; --lp-pos-2: #25609f; --lp-pos-3: #3987e5; --lp-pos-4: #78aeee; --lp-pos-5: #b4d2f7;
+  --lp-mid: #4a4a46;
+  --lp-ink-1: var(--lp-ink-light); --lp-ink-2: var(--lp-ink-light); --lp-ink-3: var(--lp-ink-dark);
+  --lp-ink-4: var(--lp-ink-dark); --lp-ink-5: var(--lp-ink-dark);
+  --lp-ink-mid: var(--lp-ink-light);
+}
+[data-side="neg"][data-step="1"] { background: var(--lp-neg-1); color: var(--lp-ink-1); }
+[data-side="neg"][data-step="2"] { background: var(--lp-neg-2); color: var(--lp-ink-2); }
+[data-side="neg"][data-step="3"] { background: var(--lp-neg-3); color: var(--lp-ink-3); }
+[data-side="neg"][data-step="4"] { background: var(--lp-neg-4); color: var(--lp-ink-4); }
+[data-side="neg"][data-step="5"] { background: var(--lp-neg-5); color: var(--lp-ink-5); }
+[data-side="pos"][data-step="1"] { background: var(--lp-pos-1); color: var(--lp-ink-1); }
+[data-side="pos"][data-step="2"] { background: var(--lp-pos-2); color: var(--lp-ink-2); }
+[data-side="pos"][data-step="3"] { background: var(--lp-pos-3); color: var(--lp-ink-3); }
+[data-side="pos"][data-step="4"] { background: var(--lp-pos-4); color: var(--lp-ink-4); }
+[data-side="pos"][data-step="5"] { background: var(--lp-pos-5); color: var(--lp-ink-5); }
+[data-side="mid"] { background: var(--lp-mid); color: var(--lp-ink-mid); }
+
+.reveal .lp-question.lp-active > .lp-scale-note { display: none; }
+.reveal .lp-scale-note p { font-size: 0.7em; color: var(--lp-muted, inherit); }
+
+.lp-likert {
+  --lp-fit: 1;
+  --lp-col-h: 2.4em;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: calc(0.9em * var(--lp-fit));
+  font-size: calc(1em * var(--lp-fit));
+}
+.lp-likert[data-statements="1"] { --lp-col-h: 8em; --lp-bar-h: 2.3em; }
+.lp-likert[data-statements="2"] { --lp-col-h: 5em; --lp-bar-h: 2em; }
+.lp-likert[data-statements="3"] { --lp-col-h: 3.5em; --lp-bar-h: 1.8em; }
+.lp-likert[data-statements="4"] { --lp-col-h: 2.8em; }
+.lp-likert[data-statements="5"] { --lp-col-h: 2.3em; }
+.lp-likert[data-statements="6"] { --lp-col-h: 1.9em; }
+
+.lp-lk-legend {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.3em 0.95em;
+  font-size: 0.64em;
+  color: var(--lp-muted);
+}
+.lp-lk-key {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45em;
+  white-space: nowrap;
+}
+.lp-lk-swatch {
+  width: 0.95em;
+  height: 0.95em;
+  border-radius: 0.2em;
+}
+.lp-lk-anchors {
+  align-items: center;
+  gap: 0.7em;
+}
+.lp-lk-anchor b { color: var(--lp-fg); }
+.lp-lk-dash {
+  width: 3em;
+  border-top: 2px solid var(--lp-line);
+}
+
+.lp-lk-rows {
+  display: flex;
+  flex-direction: column;
+  gap: calc(0.85em * var(--lp-fit));
+}
+.lp-lk-numeric .lp-lk-rows { gap: calc(0.7em * var(--lp-fit)); }
+
+.lp-lk-head {
+  display: flex;
+  align-items: baseline;
+  gap: 1em;
+}
+.reveal .lp-lk-label {
+  min-width: 0;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+.reveal .lp-lk-label code { font-size: 0.9em; }
+.reveal .lp-lk-label p { margin: 0; }
+.lp-lk-meta {
+  display: flex;
+  gap: 0.8em;
+  margin-left: auto;
+}
+.lp-lk-n,
+.lp-lk-stats {
+  margin-left: auto;
+  color: var(--lp-muted);
+  font-size: 0.72em;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.lp-lk-stats { font-weight: 700; color: var(--lp-fg); }
+
+/* Labeled: one diverging bar per statement, totals outside each end. */
+.lp-lk-line {
+  display: grid;
+  grid-template-columns: 2.9em minmax(0, 1fr) 2.9em;
+  align-items: center;
+  column-gap: 0.45em;
+  margin-top: 0.3em;
+}
+.lp-lk-total {
+  font-weight: 700;
+  font-size: 0.9em;
+  font-variant-numeric: tabular-nums;
+}
+.lp-lk-neg { text-align: right; }
+.lp-lk-track {
+  position: relative;
+  height: var(--lp-bar-h, 1.55em);
+}
+/* The center line shows as ticks above and below the bar, never through a label. */
+.lp-lk-axis {
+  position: absolute;
+  left: 50%;
+  top: -0.3em;
+  bottom: -0.3em;
+  width: 2px;
+  transform: translateX(-1px);
+  background: color-mix(in srgb, var(--lp-fg) 55%, var(--lp-bg));
+  transition: left 0.8s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.lp-lk-seg {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 0;
+  box-sizing: border-box;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border: 0 solid var(--lp-bg);
+  border-width: 0 1px;
+  border-radius: 0.25em;
+  z-index: 1;
+  container-type: inline-size;
+  transition:
+    left 0.8s cubic-bezier(0.22, 1, 0.36, 1),
+    width 0.8s cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 0.3s ease;
+}
+.lp-lk-seg.lp-lk-zero { opacity: 0; }
+.lp-lk-pct {
+  font-size: 0.66em;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+/* Percentages only where they fit. */
+@container (max-width: 2.3em) {
+  .lp-lk-pct { visibility: hidden; }
+}
+
+/* Numeric: one histogram per statement, mean marked. */
+.lp-hist {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(var(--lp-points), minmax(0, 1fr));
+  align-items: end;
+  gap: 0.3em;
+  height: calc(var(--lp-col-h) * var(--lp-fit));
+  margin-top: 0.75em;
+  border-bottom: 2px solid var(--lp-line);
+}
+.lp-hist-col {
+  height: 100%;
+  display: flex;
+  align-items: flex-end;
+}
+.lp-hist-bar {
+  position: relative;
+  width: 100%;
+  height: 0;
+  border-radius: 0.2em 0.2em 0 0;
+  background: color-mix(in srgb, var(--lp-accent) 72%, var(--lp-bg));
+  transition: height 0.8s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.lp-hist-n {
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  right: 0;
+  padding-bottom: 0.15em;
+  text-align: center;
+  font-size: 0.6em;
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+/* The mean: an upward pointer just under the baseline. */
+.lp-hist-mean {
+  position: absolute;
+  top: 100%;
+  width: 0;
+  height: 0;
+  margin-top: 2px;
+  border: 0.32em solid transparent;
+  border-top: 0;
+  border-bottom: 0.5em solid var(--lp-fg);
+  transform: translateX(-50%);
+  transition: left 0.8s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.lp-hist-mean[hidden] { display: none; }
+.lp-lk-mean-icon {
+  width: 0;
+  height: 0;
+  border: 0.42em solid transparent;
+  border-top: 0;
+  border-bottom: 0.66em solid var(--lp-fg);
+}
+.lp-lk-mean-key { margin-left: 1.2em; }
+.lp-hist-axis {
+  display: grid;
+  grid-template-columns: repeat(var(--lp-points), minmax(0, 1fr));
+  gap: 0.3em;
+  margin-top: 1.15em;
+  font-size: 0.62em;
+  line-height: 1;
+  text-align: center;
+  color: var(--lp-muted);
+  font-variant-numeric: tabular-nums;
+}
+/* Four or more statements share one row of scale values, under the last. */
+.lp-likert[data-statements="4"] .lp-lk-row:not(:last-child) .lp-hist-axis,
+.lp-likert[data-statements="5"] .lp-lk-row:not(:last-child) .lp-hist-axis,
+.lp-likert[data-statements="6"] .lp-lk-row:not(:last-child) .lp-hist-axis {
+  display: none;
+}
+.lp-lk-numeric .lp-lk-row { padding-bottom: 0.45em; }
+
 /* ---- word cloud --------------------------------------------------------------- */
 
 .lp-cloud {
@@ -236,12 +499,22 @@
 
 .lp-results-hidden .lp-fill,
 .lp-results-hidden .lp-stat,
+.lp-results-hidden .lp-lk-seg,
+.lp-results-hidden .lp-lk-total,
+.lp-results-hidden .lp-lk-n,
+.lp-results-hidden .lp-lk-stats,
+.lp-results-hidden .lp-hist-bar,
+.lp-results-hidden .lp-hist-mean,
 .lp-results-hidden .lp-cloud-area > * {
   visibility: hidden;
 }
 .lp-results-hidden .lp-cloud.lp-empty .lp-cloud-area::after { content: none; }
 
 .lp-results-hidden .lp-track { opacity: 0.55; }
+.lp-results-hidden .lp-lk-track {
+  border-radius: 0.25em;
+  background: var(--lp-track);
+}
 .lp-results-hidden .lp-veil {
   display: block;
   align-self: flex-start;
@@ -473,6 +746,9 @@ html[data-lp-mode="presenter"] .lp-question:focus-within .lp-controls {
 
 @media (prefers-reduced-motion: reduce) {
   .lp-fill,
+  .lp-lk-seg,
+  .lp-hist-bar,
+  .lp-hist-mean,
   .lp-word,
   .lp-toast { transition: none; }
   .lp-pill[data-state="live"]::before { animation: none; }

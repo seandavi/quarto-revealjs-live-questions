@@ -11,7 +11,11 @@
     answerChars: 40,
     maxWordsCeiling: 10,
     maxAnswersCeiling: 10,
-    cloudWords: 100
+    cloudWords: 100,
+    likertStatements: 6,
+    likertStatementChars: 200,
+    likertPoints: 11,
+    likertLabelChars: 40
   };
   var audiencePath = (session) => `/s/${encodeURIComponent(session)}`;
   var socketPath = (session) => `/api/s/${encodeURIComponent(session)}/ws`;
@@ -63,7 +67,7 @@
       return null;
     try {
       const q = JSON.parse(raw);
-      if (q.type !== "poll" && q.type !== "wordcloud")
+      if (q.type !== "poll" && q.type !== "wordcloud" && q.type !== "likert")
         return null;
       return q;
     } catch (err) {
@@ -72,7 +76,22 @@
     }
   }
   function definition(q) {
-    return q.type === "poll" ? { type: q.type, id: q.id, prompt: q.prompt, options: q.options } : { type: q.type, id: q.id, prompt: q.prompt, maxWords: q.maxWords, maxAnswers: q.maxAnswers };
+    switch (q.type) {
+      case "poll":
+        return { type: q.type, id: q.id, prompt: q.prompt, options: q.options };
+      case "wordcloud":
+        return { type: q.type, id: q.id, prompt: q.prompt, maxWords: q.maxWords, maxAnswers: q.maxAnswers };
+      case "likert":
+        return {
+          type: q.type,
+          id: q.id,
+          prompt: q.prompt,
+          statements: q.statements,
+          labels: q.labels,
+          numeric: q.numeric,
+          anchors: q.anchors ?? null
+        };
+    }
   }
   function audienceUrl(server, path) {
     return server + path;
@@ -1986,6 +2005,188 @@
     }
   }
 
+  // src/deck/likert.ts
+  var STEPS = { 1: [3], 2: [2, 4], 3: [1, 3, 5], 4: [1, 2, 4, 5], 5: [1, 2, 3, 4, 5] };
+  function tones(n) {
+    const arm = Math.floor(n / 2);
+    const steps = STEPS[arm] ?? STEPS[5];
+    return Array.from({ length: n }, (_, i) => {
+      if (n % 2 === 1 && i === arm)
+        return { side: "mid", step: 0 };
+      const away = i < arm ? arm - i : i - (n - arm) + 1;
+      return { side: i < arm ? "neg" : "pos", step: steps[away - 1] };
+    });
+  }
+  function diverging(counts) {
+    const n = counts.length;
+    const total = counts.reduce((a, b) => a + b, 0);
+    const share = counts.map((c) => total > 0 ? c / total : 0);
+    const arm = Math.floor(n / 2);
+    const neutral = n % 2 === 1 ? share[arm] : 0;
+    const neg = share.slice(0, arm).reduce((a, b) => a + b, 0);
+    const pos = share.slice(n - arm).reduce((a, b) => a + b, 0);
+    let at = 0 - (neg + neutral / 2);
+    const start = share.map((s) => {
+      const x = at;
+      at += s;
+      return x;
+    });
+    return { start, width: share, neg, pos, total };
+  }
+  function extent(rows) {
+    let left = 0;
+    let right = 0;
+    for (const r of rows) {
+      const last = r.start.length - 1;
+      left = Math.max(left, -(r.start[0] ?? 0));
+      right = Math.max(right, (r.start[last] ?? 0) + (r.width[last] ?? 0));
+    }
+    const round = (x) => Math.min(1, Math.max(0.2, Math.ceil(x * 10 - 0.000000001) / 10));
+    return { left: round(left), right: round(right) };
+  }
+  function summary(counts, values) {
+    const total = counts.reduce((a, b) => a + b, 0);
+    if (total === 0)
+      return null;
+    let sum = 0;
+    counts.forEach((c, i) => sum += c * values[i]);
+    const nth = (k) => {
+      let seen = 0;
+      for (let i = 0;i < counts.length; i++) {
+        seen += counts[i];
+        if (seen > k)
+          return values[i];
+      }
+      return values[values.length - 1];
+    };
+    const median = (nth(Math.floor((total - 1) / 2)) + nth(Math.ceil((total - 1) / 2))) / 2;
+    return { mean: sum / total, median, total };
+  }
+  var pctText = (x) => `${Math.round(x * 100)}%`;
+  var responses = (n) => `${n} ${n === 1 ? "response" : "responses"}`;
+
+  class LikertChart {
+    q;
+    el;
+    diverging = [];
+    axes = [];
+    hist = [];
+    values;
+    constructor(q, items) {
+      this.q = q;
+      const n = q.labels.length;
+      this.values = q.labels.map(Number);
+      const showLabels = !(q.statements.length === 1 && q.statements[0] === q.prompt);
+      const label = (i) => {
+        const el = h("div", { class: "lp-lk-label" });
+        el.append(...labelNodes(items[i], q.statements[i] ?? ""));
+        return showLabels ? el : null;
+      };
+      const rows = h("div", { class: "lp-lk-rows" });
+      if (!q.numeric) {
+        const palette = tones(n);
+        for (let s = 0;s < q.statements.length; s++) {
+          const segs = [];
+          const pcts = [];
+          for (let p = 0;p < n; p++) {
+            const pct = h("span", { class: "lp-lk-pct" });
+            const seg = h("div", {
+              class: "lp-lk-seg",
+              attrs: { "data-side": palette[p].side, "data-step": String(palette[p].step), title: q.labels[p] }
+            }, pct);
+            segs.push(seg);
+            pcts.push(pct);
+          }
+          const neg = h("span", { class: "lp-lk-total lp-lk-neg" });
+          const pos = h("span", { class: "lp-lk-total lp-lk-pos" });
+          const count = h("span", { class: "lp-lk-n" });
+          const axis = h("div", { class: "lp-lk-axis" });
+          this.axes.push(axis);
+          rows.append(h("div", { class: "lp-lk-row" }, h("div", { class: "lp-lk-head" }, label(s), count), h("div", { class: "lp-lk-line" }, neg, h("div", { class: "lp-lk-track" }, axis, ...segs), pos)));
+          this.diverging.push({ segs, pcts, neg, pos, n: count });
+        }
+      } else {
+        for (let s = 0;s < q.statements.length; s++) {
+          const bars = [];
+          const counts = [];
+          const cols = q.labels.map(() => {
+            const c = h("span", { class: "lp-hist-n" });
+            const bar = h("div", { class: "lp-hist-bar" }, c);
+            bars.push(bar);
+            counts.push(c);
+            return h("div", { class: "lp-hist-col" }, bar);
+          });
+          const mean = h("div", { class: "lp-hist-mean", attrs: { "aria-hidden": "true" } });
+          const axis = h("div", { class: "lp-hist-axis" }, ...q.labels.map((l) => h("span", { text: l })));
+          const stats = h("span", { class: "lp-lk-stats" });
+          const count = h("span", { class: "lp-lk-n" });
+          rows.append(h("div", { class: "lp-lk-row" }, h("div", { class: "lp-lk-head" }, label(s), h("span", { class: "lp-lk-meta" }, stats, count)), h("div", { class: "lp-hist" }, ...cols, mean), axis));
+          this.hist.push({ bars, counts, mean, stats, n: count });
+        }
+      }
+      this.el = h("div", { class: `lp-likert ${q.numeric ? "lp-lk-numeric" : "lp-lk-labeled"}`, attrs: { "data-statements": String(q.statements.length) } }, this.legend(), rows);
+      this.el.style.setProperty("--lp-points", String(n));
+    }
+    legend() {
+      const q = this.q;
+      if (q.numeric) {
+        const end = (value, text) => text ? h("span", { class: "lp-lk-anchor" }, h("b", { text: value }), ` ${text}`) : null;
+        const anchored = !!(q.anchors?.[0] || q.anchors?.[1]);
+        return h("div", { class: "lp-lk-legend lp-lk-anchors" }, end(q.labels[0], q.anchors?.[0]), anchored ? h("span", { class: "lp-lk-dash", attrs: { "aria-hidden": "true" } }) : null, end(q.labels[q.labels.length - 1], q.anchors?.[1]), h("span", { class: "lp-lk-key lp-lk-mean-key" }, h("i", { class: "lp-lk-mean-icon" }), "mean"));
+      }
+      const palette = tones(q.labels.length);
+      return h("div", { class: "lp-lk-legend" }, ...q.labels.map((l, i) => h("span", { class: "lp-lk-key" }, h("i", { class: "lp-lk-swatch", attrs: { "data-side": palette[i].side, "data-step": String(palette[i].step) } }), l)));
+    }
+    update(results) {
+      const counts = this.q.statements.map((_, s) => this.q.labels.map((__, p) => results?.counts[s]?.[p] ?? 0));
+      if (!this.q.numeric)
+        this.updateDiverging(counts);
+      else
+        this.updateHist(counts);
+    }
+    updateDiverging(counts) {
+      const bars = counts.map((c) => diverging(c));
+      const { left, right } = extent(bars);
+      const span = left + right;
+      const at = (x) => (x + left) / span * 100;
+      for (const axis of this.axes)
+        axis.style.left = `${at(0).toFixed(3)}%`;
+      bars.forEach((b, s) => {
+        const row = this.diverging[s];
+        row.segs.forEach((seg, p) => {
+          const w = b.width[p] ?? 0;
+          seg.style.left = `${at(b.start[p] ?? 0).toFixed(3)}%`;
+          seg.style.width = `${(w / span * 100).toFixed(3)}%`;
+          seg.classList.toggle("lp-lk-zero", w === 0);
+          row.pcts[p].textContent = w > 0 ? pctText(w) : "";
+        });
+        row.neg.textContent = b.total > 0 ? pctText(b.neg) : "";
+        row.pos.textContent = b.total > 0 ? pctText(b.pos) : "";
+        row.n.textContent = responses(b.total);
+      });
+    }
+    updateHist(counts) {
+      const max = Math.max(0, ...counts.flat());
+      const n = this.q.labels.length;
+      counts.forEach((c, s) => {
+        const row = this.hist[s];
+        c.forEach((count, p) => {
+          row.bars[p].style.height = max > 0 ? `${(count / max * 100).toFixed(2)}%` : "0%";
+          row.bars[p].classList.toggle("lp-hist-empty", count === 0);
+          row.counts[p].textContent = count > 0 ? String(count) : "";
+        });
+        const sum = summary(c, this.values);
+        row.n.textContent = responses(sum?.total ?? 0);
+        row.stats.textContent = sum ? `mean ${sum.mean.toFixed(1)} · median ${sum.median}` : "";
+        row.mean.hidden = !sum;
+        if (sum) {
+          const x = (sum.mean - this.values[0] + 0.5) / n * 100;
+          row.mean.style.left = `${x.toFixed(3)}%`;
+        }
+      });
+    }
+  }
+
   // src/deck/cloud-layout.ts
   function newMemory() {
     return { positions: new Map, scale: 1 };
@@ -2256,11 +2457,13 @@
       list?.classList.add("lp-source");
       if (q.type === "poll") {
         this.chart = new BarChart(q.options, list ? Array.from(list.children) : []);
+      } else if (q.type === "likert") {
+        this.chart = new LikertChart(q, list ? Array.from(list.children) : []);
       } else {
         this.chart = new WordCloud((t, hidden) => ctx.send({ t: "hide", id: q.id, text: t, hidden }));
       }
       const veil = h("div", { class: "lp-veil", text: "Results hidden" });
-      if (this.chart instanceof BarChart)
+      if (!(this.chart instanceof WordCloud))
         this.chart.el.append(veil);
       this.main = h("div", { class: "lp-main" }, text, this.chart.el, this.chart instanceof WordCloud ? veil : null);
       this.pill = h("span", { class: "lp-pill", attrs: { "data-state": "offline" }, text: "OFFLINE" });
@@ -2285,6 +2488,8 @@
       const results = qs?.results ?? null;
       if (this.chart instanceof BarChart) {
         this.chart.update(results?.type === "poll" ? results : null, qs?.revealed ?? null);
+      } else if (this.chart instanceof LikertChart) {
+        this.chart.update(results?.type === "likert" ? results : null);
       } else {
         this.chart.update(results?.type === "wordcloud" ? results : null);
       }
@@ -2399,6 +2604,7 @@
       this.config = config;
       this.mode = embedded ? "embedded" : "viewer";
       document.documentElement.dataset.lpMode = this.mode;
+      document.documentElement.dataset.lpTone = themeTone(this.deck.getRevealElement());
       const server = config.server;
       const session = sessionOverride(window.location.search) ?? config.session;
       const url = audienceUrl(server, audiencePath(session));
@@ -2576,12 +2782,23 @@
       if (!this.presenter)
         return this.toast?.show("Only the presenter can reveal answers");
       const q = view.q;
+      if (q.type === "likert")
+        return this.toast?.show("Rating scales have no answer to reveal");
       if (q.type !== "poll" || !q.correct?.length) {
         return this.toast?.show("This question has no correct answer marked");
       }
       if (this.send({ t: "reveal", id: q.id, correct: q.correct }))
         view.showResults();
     }
+  }
+  function themeTone(reveal) {
+    const probe = document.createElement("span");
+    probe.style.color = "var(--r-background-color, #fff)";
+    reveal.append(probe);
+    const rgb = getComputedStyle(probe).color.match(/[\d.]+/g)?.map(Number) ?? [255, 255, 255];
+    probe.remove();
+    const [r = 255, g = 255, b = 255] = rgb;
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b < 128 ? "dark" : "light";
   }
   function fitHeight(el, slide, slideHeight) {
     let top = 0;

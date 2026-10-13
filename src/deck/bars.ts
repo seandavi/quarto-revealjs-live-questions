@@ -11,7 +11,7 @@ interface Row {
 }
 
 /** The option's label content, cloned from its <li> (unwrapping a lone <p>). */
-function labelNodes(li: Element | undefined, fallback: string): Node[] {
+export function labelNodes(li: Element | undefined, fallback: string): Node[] {
   if (!li) return [document.createTextNode(fallback)];
   const only = li.children.length === 1 && li.firstElementChild?.tagName === "P"
     && li.textContent?.trim() === li.firstElementChild.textContent?.trim();
