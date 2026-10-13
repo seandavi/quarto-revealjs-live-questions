@@ -682,6 +682,263 @@ input {
   color: var(--muted);
 }
 
+/* ------------------------------------------------------------ likert */
+
+/*
+ * The deck's diverging palette: red (low) against blue (high) with a gray
+ * neutral, steps 1 (near the middle) to 5 (the ends). Dark mode uses steps
+ * chosen for a dark surface. --lk-ink-N is the text color on step N.
+ */
+:root {
+  --lk-neg-1: #f8cfc4; --lk-neg-2: #f09a84; --lk-neg-3: #dc5a3c; --lk-neg-4: #b23f27; --lk-neg-5: #842a1a;
+  --lk-pos-1: #c6dcf8; --lk-pos-2: #86b6ef; --lk-pos-3: #3987e5; --lk-pos-4: #1f63b8; --lk-pos-5: #104281;
+  --lk-mid: #dcdbd6;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --lk-neg-1: #6b2618; --lk-neg-2: #9b3822; --lk-neg-3: #d4553a; --lk-neg-4: #ec8f78; --lk-neg-5: #f7c4b6;
+    --lk-pos-1: #1d426f; --lk-pos-2: #25609f; --lk-pos-3: #3987e5; --lk-pos-4: #78aeee; --lk-pos-5: #b4d2f7;
+    --lk-mid: #4a4a46;
+  }
+}
+
+[data-side="neg"][data-step="1"] { --lk-c: var(--lk-neg-1); }
+[data-side="neg"][data-step="2"] { --lk-c: var(--lk-neg-2); }
+[data-side="neg"][data-step="3"] { --lk-c: var(--lk-neg-3); }
+[data-side="neg"][data-step="4"] { --lk-c: var(--lk-neg-4); }
+[data-side="neg"][data-step="5"] { --lk-c: var(--lk-neg-5); }
+[data-side="pos"][data-step="1"] { --lk-c: var(--lk-pos-1); }
+[data-side="pos"][data-step="2"] { --lk-c: var(--lk-pos-2); }
+[data-side="pos"][data-step="3"] { --lk-c: var(--lk-pos-3); }
+[data-side="pos"][data-step="4"] { --lk-c: var(--lk-pos-4); }
+[data-side="pos"][data-step="5"] { --lk-c: var(--lk-pos-5); }
+[data-side="mid"] { --lk-c: var(--lk-mid); }
+
+.lk-list {
+  display: grid;
+  gap: 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.lk-item {
+  padding: 14px 14px 12px;
+  background: var(--surface);
+  border: 2px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  transition: border-color 0.15s;
+}
+
+.lk-item.rated {
+  border-color: color-mix(in srgb, var(--ink) 35%, var(--line));
+}
+
+.lk-top {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.lk-statement {
+  flex: 1;
+  margin: 0;
+  font-size: 1.0625rem;
+  font-weight: 600;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+.lk-picked {
+  flex: none;
+  margin-left: auto;
+  max-width: 45%;
+  font-size: 0.875rem;
+  font-weight: 700;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+.lk-picked:empty {
+  display: none;
+}
+
+/* One row of segmented buttons; 8+ points wrap to two rows on narrow phones. */
+.lk-scale {
+  display: grid;
+  grid-template-columns: repeat(var(--n), minmax(0, 1fr));
+  gap: 5px;
+}
+
+@media (max-width: 459px) {
+  .lk-scale.wrap {
+    grid-template-columns: repeat(var(--half), minmax(0, 1fr));
+    row-gap: 7px;
+  }
+}
+
+.lk-btn {
+  display: grid;
+  place-items: center;
+  min-width: 0;
+  height: 48px;
+  padding: 0;
+  background: color-mix(in srgb, var(--lk-c, var(--track)) 32%, var(--surface));
+  border: 2px solid transparent;
+  border-radius: 10px;
+  font: 700 1.0625rem/1 var(--font-display);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+  cursor: pointer;
+  touch-action: manipulation;
+  transition:
+    background 0.15s,
+    border-color 0.15s,
+    transform 0.1s;
+}
+
+.lk-btn:active {
+  transform: scale(0.95);
+}
+
+.lk-scale.numeric .lk-btn {
+  background: var(--track);
+}
+
+.lk-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--lk-c);
+  transition: transform 0.15s;
+}
+
+.lk-btn.selected {
+  background: var(--lk-c, var(--ink));
+  border-color: var(--ink);
+  box-shadow: 0 0 0 2px var(--surface) inset;
+}
+
+.lk-scale.numeric .lk-btn.selected {
+  background: var(--ink);
+  color: var(--surface);
+}
+
+.lk-btn.selected .lk-dot {
+  transform: scale(1.5);
+  background: var(--surface);
+  box-shadow: 0 0 0 2px var(--ink);
+}
+
+.lk-btn.pending {
+  opacity: 0.75;
+}
+
+.lk-ends {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: 8px;
+  margin-top: 8px;
+  font-size: 0.8125rem;
+  line-height: 1.25;
+  color: var(--muted);
+}
+
+.lk-ends > :last-child {
+  grid-column: 3;
+  text-align: right;
+}
+
+.lk-ends b {
+  color: var(--ink);
+}
+
+.lk-mid {
+  text-align: center;
+}
+
+/* Results: one small histogram per statement, the voter's own column outlined. */
+.lk-dist {
+  display: grid;
+  grid-template-columns: repeat(var(--n), minmax(0, 1fr));
+  gap: 4px;
+  height: 88px;
+  align-items: end;
+  border-bottom: 2px solid var(--line);
+}
+
+.lk-col {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  height: 100%;
+}
+
+.lk-col-n {
+  font: 700 0.75rem/1.4 var(--font-display);
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+}
+
+.lk-bar {
+  display: block;
+  height: var(--h);
+  min-height: 2px;
+  border-radius: 5px 5px 0 0;
+  background: var(--lk-c, var(--bar));
+  transform-origin: bottom;
+  animation: rise 0.6s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+.lk-col.mine .lk-bar {
+  outline: 2.5px solid var(--ink);
+  outline-offset: 1.5px;
+}
+
+.lk-col.mine .lk-col-n {
+  margin-bottom: 4px;
+  color: var(--ink);
+}
+
+.lk-col-label {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  font-size: 0.75rem;
+  text-align: center;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.lk-col.mine .lk-col-label {
+  color: var(--ink);
+  font-weight: 700;
+}
+
+.lk-dist + .lk-summary {
+  margin-top: 26px;
+}
+
+.lk-summary {
+  margin: 8px 0 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.lk-you {
+  flex: none;
+  margin-left: auto;
+  background: var(--mark);
+  color: var(--mark-ink);
+  border-color: transparent;
+}
+
 /* ------------------------------------------------------------ toast */
 
 .toast {
@@ -750,6 +1007,12 @@ input {
 @keyframes grow {
   from {
     transform: scaleX(0);
+  }
+}
+
+@keyframes rise {
+  from {
+    transform: scaleY(0);
   }
 }
 
