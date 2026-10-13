@@ -1,6 +1,6 @@
 ---
 title: "Live Poll"
-subtitle: "Audience polls and word clouds for Quarto revealjs"
+subtitle: "Audience polls, word clouds and rating scales for Quarto revealjs"
 format: revealjs
 filters:
   - live-poll
@@ -49,6 +49,25 @@ A p-value of 0.03 means:
 - [ ] There is a 3% chance the null hypothesis is true
 - [x] Data this extreme would occur 3% of the time if the null were true
 - [ ] There is a 97% chance the result is real
+:::
+
+## How did today go?
+
+::: {.likert #feedback scale="agree-5"}
+- The pace of today's lecture was right
+- The examples helped
+- I could follow the live coding
+:::
+
+## How confident are you running a t-test in R?
+
+::: {.likert #confidence scale="0-10" low="Not at all" high="Completely"}
+:::
+
+## How was the pace?
+
+::: {.likert #speed labels="Too slow|Just right|Too fast"}
+- Pace of today's lecture
 :::
 
 ## Presenter keys
