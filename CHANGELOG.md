@@ -20,6 +20,10 @@ First public release. Protocol version 1.
 - `.wordcloud` divs: short free-text answers shown as a live word cloud, with
   `max-words` and `max-answers` per question, answer normalization, stable
   word positions, and click-to-hide moderation for the presenter.
+- `.likert` divs: one to six statements rated on a shared scale (`agree-5`,
+  `agree-7`, numeric ranges such as `0-10` with `low=`/`high=` end labels, or
+  custom `labels=`), shown as diverging bars or histograms with mean and
+  median; phones rate each statement and can change ratings while open.
 - Per-question `#id`, `prompt=` and `results=` attributes, and `live-poll:`
   options `server`, `session`, `close-on-leave`, `results` and `qr`.
 - One audience URL per session that follows the deck, shown as a QR code and

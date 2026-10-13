@@ -1,6 +1,6 @@
 # Live Poll for Quarto revealjs
 
-Live audience polls, quizzes and word clouds for Quarto revealjs slides,
+Live audience polls, quizzes, word clouds and rating scales for Quarto revealjs slides,
 written in Quarto markdown and backed by a small server you run yourself.
 
 [![CI](https://github.com/seandavi/quarto-live-poll/actions/workflows/ci.yml/badge.svg)](https://github.com/seandavi/quarto-live-poll/actions/workflows/ci.yml)
@@ -25,6 +25,9 @@ renders as a live poll in the browser and as a plain list in a PDF.
   with task-list syntax (`- [x]`) and reveal them with one key press.
 - **Word clouds** from short free-text answers, with per-question limits on
   words and answers, and click-to-hide moderation for the presenter.
+- **Rating scales** (Likert): one to six statements on a shared agree/disagree,
+  numeric (e.g. 0 to 10) or custom scale, shown as diverging bars or
+  histograms.
 - **Results on the slide as votes arrive**, or hidden until you show them.
 - **One URL per talk.** The QR code points at a session page that follows
   the deck, so the audience scans once and their phones switch to each
@@ -181,6 +184,47 @@ reflects how many people gave it.
 In presenter mode, click a word to hide it from the slide and from phones.
 Hidden words are listed under the cloud; click one to bring it back.
 
+### Rating scale (Likert)
+
+In a `.likert` div the list items are *statements*, not options. Everyone
+rates every statement on one shared scale:
+
+```markdown
+## How did today go?
+
+::: {.likert #feedback scale="agree-5"}
+- The pace of today's lecture was right
+- The examples helped
+- I could follow the live coding
+:::
+```
+
+| `scale=` | Points |
+|---|---|
+| `agree-5` (default) | Strongly disagree, Disagree, Neutral, Agree, Strongly agree |
+| `agree-7` | adds Somewhat disagree and Somewhat agree |
+| `0-10`, `1-5`, ... | numeric, up to 11 points; `low=` and `high=` name the ends |
+
+For any other scale, list the labels from low to high instead of `scale=`:
+`labels="Too slow|Just right|Too fast"` (2 to 11 labels). Without a list,
+the prompt (or the heading) is the single statement:
+
+```markdown
+## How confident are you running a t-test in R?
+
+::: {.likert #confidence scale="0-10" low="Not at all" high="Completely"}
+:::
+```
+
+Labeled scales show one diverging bar per statement, centered on the neutral
+point. Numeric scales show one histogram per statement with the mean and
+median. Phones get one row of buttons per statement, and ratings can be
+changed until voting closes. There is no correct answer, so `A` does nothing.
+
+![Three statements rated on a five-point agreement scale, shown as diverging bars](docs/screenshots/likert-deck-labeled-light.png)
+
+![A zero-to-ten confidence scale shown as a histogram with the mean marked](docs/screenshots/likert-deck-numeric-light.png)
+
 ### The prompt
 
 Phones show a prompt for each question. It is, in order: the `prompt="..."`
@@ -203,14 +247,17 @@ A p-value of 0.03 means:
 
 | Attribute | Applies to | Default | Meaning |
 |---|---|---|---|
-| `#id` | both | generated from the text | Question id on the server. Give one explicitly: editing a question changes its generated id, and its old results stay behind under the old id. |
-| `prompt="..."` | both | see above | The prompt sent to phones. |
-| `results=` | both | the `results` option | `live` or `hidden` for this question. |
+| `#id` | all | generated from the text | Question id on the server. Give one explicitly: editing a question changes its generated id, and its old results stay behind under the old id. |
+| `prompt="..."` | all | see above | The prompt sent to phones. |
+| `results=` | all | the `results` option | `live` or `hidden` for this question. |
 | `max-words=` | word cloud | 3 | Words kept per answer (1 to 10). |
 | `max-answers=` | word cloud | 3 | Answers per person (1 to 10). |
+| `scale=` | likert | `agree-5` | `agree-5`, `agree-7`, or a numeric range such as `0-10`. |
+| `labels=` | likert | none | Custom scale labels, low to high, separated by `\|`. |
+| `low=`, `high=` | likert, numeric | none | Names for the ends of a numeric scale. |
 
 Limits: up to 26 options per poll, 200 characters per option, 500 characters
-per prompt. The filter warns at render time about duplicate ids, polls with
+per prompt, and up to 6 statements and 11 scale points per rating scale. The filter warns at render time about duplicate ids, polls with
 fewer than two options and out-of-range values.
 
 ### Options
@@ -321,6 +368,8 @@ answer was correct.
 | ![Poll open on a phone](docs/screenshots/phone-poll-open.png) | ![Vote recorded](docs/screenshots/phone-poll-voted.png) | ![Results with the correct answer](docs/screenshots/phone-poll-revealed.png) |
 | **Word cloud open** | **Word cloud results** | **Dark mode** |
 | ![Word cloud answer form](docs/screenshots/phone-wordcloud-open.png) | ![Ranked word list](docs/screenshots/phone-wordcloud-results.png) | ![Dark mode results](docs/screenshots/phone-dark-revealed.png) |
+| **Rating scale open** | **Numeric scale** | **Rating results** |
+| ![Rating rows, two of three rated](docs/screenshots/likert-phone-partial-light.png) | ![Zero to ten scale on a phone](docs/screenshots/likert-phone-numeric-light.png) | ![Per-statement distributions with the voter's rating marked](docs/screenshots/likert-phone-closed-light.png) |
 
 The server's root URL shows a form for typing a session name, for people who
 cannot scan.
@@ -526,7 +575,7 @@ free plan or in a Docker container, with no third-party pub/sub service in
 between. One session URL follows the
 deck, so the audience scans once per talk. The presenter key never appears in
 the HTML, so the deck you present from can also be the deck you publish.
-In return, it does much less than the hosted services: two question types, no
+In return, it does much less than the hosted services: three question types, no
 accounts, no results archive, and no protection against a determined person
 voting twice.
 
