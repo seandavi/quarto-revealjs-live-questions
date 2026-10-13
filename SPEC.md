@@ -22,7 +22,7 @@ presenter deck (Quarto revealjs)               audience phones
        | WebSocket                                   |
        +------------> one room per session <---------+
                       Cloudflare: Worker + Durable Object (SQLite storage)
-                      Docker:     Node + @hono/node-ws
+                      Docker:     Node + @hono/node-server (built-in WebSockets via ws)
                       both:       Room core (src/server/room.ts) + Hono routes
 ```
 
@@ -242,12 +242,31 @@ are no CDN requests.
 | `GET /api/s/:session/ws` | WebSocket upgrade |
 | `GET /api/s/:session/export` | full room JSON including hidden words; requires `Authorization: Bearer <PRESENTER_KEY>` |
 
+`/s/:session/` redirects to `/s/:session`. The HTML routes send a strict
+Content-Security-Policy (same-origin scripts, styles and sockets only). The
+export answers CORS preflights with `Access-Control-Allow-Origin: *` so a deck
+page on another origin can fetch it; the key still gates it. Its body is
+`{ session, live, questions }`, shaped like `DeckState` (presenter view, with
+`hidden`) minus `audience`. WebSocket upgrades accept any `Origin`, since
+decks are usually served from a different origin than the server.
+
 ### Connection handling (adapters)
 
 - The first message must be `hello` with `v === PROTOCOL_VERSION`. The socket
   is a presenter only if `role === "deck"` and `key` matches `PRESENTER_KEY`
   (constant-time compare). If `PRESENTER_KEY` is unset, nobody is a presenter
-  and the server logs a warning.
+  and the server logs a warning. A wrong `v` gets a `version` error and the
+  server closes the socket with code 4000 (clients should not retry). Any
+  other message before `hello` gets `not-hello`; a second `hello` is
+  `bad-message`. `voter` must be 1 to 64 printable ASCII characters without
+  spaces (a UUID is ideal).
+- Right after `welcome`, a deck socket receives `deck`, and an audience socket
+  receives `audience` then `you`, so a client never waits for a change to see
+  the current state.
+- Validation copies only known fields, so anything extra a deck sends in a
+  question (for example `correct` or `results` from `data-lp`) is dropped and
+  never stored or broadcast. Polls need 1 to `LIMITS.pollOptions` options;
+  word clouds missing `maxWords`/`maxAnswers` get `DEFAULTS`.
 - Maximum message size: 4 KB from audience sockets, 32 KB from deck sockets.
   Larger messages get a `bad-message` error.
 - Rate limit per audience socket: token bucket, burst 20, refill 5 per second.
@@ -259,7 +278,11 @@ are no CDN requests.
 - Broadcasts are coalesced to at most one `deck` and one `audience` broadcast
   per session every 200 ms. `deck` and `audience` payloads are serialized once
   per broadcast (the presenter variant, which includes hidden words,
-  separately). `you` is sent right away, only to the voter's own sockets.
+  separately). A payload identical to the previous broadcast is not re-sent
+  (votes on an open question change the deck state but not the audience
+  state). `you` is sent right away, only to the voter's own sockets. After a
+  `reset`, or an `open` that redefines a question with votes, every phone gets
+  a fresh `you` in the next flush.
 - Persistence is written in the same flush as the broadcast: on Cloudflare,
   `ctx.storage.put("room", room.dump())`; on Node,
   `$DATA_DIR/<session>.json`, written atomically (temp file and rename) and
@@ -287,7 +310,15 @@ are no CDN requests.
 - A word cloud's word count is the number of distinct voters who submitted
   that normalized answer. `voters` counts distinct voters with at least one
   vote or answer.
-- `AudienceState.live.results` is `null` while the question is open.
+- `AudienceState.live.results` is `null` while the question is open, and so is
+  `AudienceState.live.revealed` (re-opening a revealed question, e.g. when the
+  deck reloads on that slide, must not show phones the answer mid-vote).
+- Error codes: a question id the room doesn't know is `unknown-question`; a
+  `vote`/`answer` for a known question that is not live and open is `closed`;
+  `reveal` on a word cloud, `hide` on a poll, a vote on a word cloud (or an
+  answer to a poll) and out-of-range indices are `bad-message`; presenter
+  messages without presenter rights, and `vote`/`answer` from a deck socket,
+  are `forbidden`.
 
 ### Answer normalization
 
@@ -295,7 +326,10 @@ are no CDN requests.
 2. Strip leading and trailing `. , ; : ! ? " ' ( ) [ ] { } …` and curly
    quotes. Symbols such as `+` and `#` are kept (`C++`, `C#`).
 3. Keep the first `maxWords` whitespace-separated words, then cut to
-   `LIMITS.answerChars` characters.
+   `LIMITS.answerChars` characters (code points), and strip step 2's
+   characters again so a cut never leaves trailing punctuation. Invisible
+   characters (U+200B, U+200C, U+2060, U+FEFF) are removed along with the
+   control characters; U+200D is kept because emoji sequences use it.
 4. The matching key is the lowercased result. The display text is the first
    spelling the room saw.
 
@@ -309,8 +343,13 @@ are no CDN requests.
   static assets from `public/`, and a build step that bundles `public/vote.js`.
 - Each session is `ROOMS.idFromName(session)`. The Worker forwards the
   WebSocket upgrade to the Durable Object, which accepts it with the
-  hibernation API (`ctx.acceptWebSocket`), tags sockets by role and voter, and
-  keeps per-socket state in `serializeAttachment`.
+  hibernation API (`ctx.acceptWebSocket`) and keeps per-socket state (session,
+  role, voter, presenter) in `serializeAttachment`. Sockets are not tagged:
+  tags are fixed when the socket is accepted, but role and voter only arrive
+  later in `hello`. Broadcasts filter `getWebSockets()` by attachment, which
+  is cached in memory between hibernations.
+- `assets.run_worker_first` routes `/`, `/s/*`, `/api/*` and `/healthz` to the
+  Worker; `vote.js` and `vote.css` are served straight from the asset store.
 - Secret: `wrangler secret put PRESENTER_KEY`. For local dev, `.dev.vars`
   (gitignored; see `.dev.vars.example`).
 
@@ -333,6 +372,10 @@ are no CDN requests.
   rejected late vote, reveal) and a word cloud (normalization, duplicates,
   limit, hide), and checks that export requires the key. It runs against the
   Node server, `wrangler dev` and the Docker image.
+- **Manual**: `bun scripts/presenter.ts <base> <key> <session> <command>`
+  plays presenter (open, close, reveal, reset) and simulates phones (votes,
+  answers) without a deck. Audience page screenshots for every state, light
+  and dark, are in `docs/screenshots/`.
 - **Deck**: render `example.qmd` and screenshot static mode with Playwright.
 - **End to end**: a local server plus the rendered deck as presenter and the
   audience page in a phone viewport. Vote, then check that the slide's bars
