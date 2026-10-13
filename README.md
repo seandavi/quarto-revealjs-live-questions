@@ -293,6 +293,31 @@ Use a new `session` for each talk or class meeting (for example
 `stats101-2026-10-13`), or results from last time will still be there when
 you reach a question.
 
+### Editor support
+
+The extension ships a [Quarto Wizard](https://m.canouil.dev/quarto-wizard/)
+schema (`_schema.yml`) and snippets (`_snippets.json`). With Quarto Wizard
+installed in VS Code or Positron, you get completion, hover help and
+validation for the options and question attributes, and snippets for each
+question type.
+
+### Writing questions with an AI assistant
+
+`quarto add` installs only `_extensions/live-questions/`, so a coding
+assistant working in your deck's project won't see this README. Point it at
+these references:
+
+- [`SPEC.md`](https://github.com/seandavi/quarto-revealjs-live-questions/blob/main/SPEC.md):
+  the full question syntax, options and limits.
+- `_extensions/live-questions/_schema.yml` (installed with the extension):
+  every option and attribute, with types, allowed values and bounds.
+- [`example.qmd`](https://github.com/seandavi/quarto-revealjs-live-questions/blob/main/example.qmd):
+  one of each question type.
+
+The two mistakes to watch for are listing the extension under only one of
+`filters` and `revealjs-plugins` (it needs both), and reusing a `session`
+name from an earlier talk.
+
 ## Presenting
 
 ### The presenter key
