@@ -136,7 +136,7 @@ slide, and phones show the plain text.
 :::
 ```
 
-![Poll with live bars](docs/screenshots/deck-poll.png)
+![Bars growing on the slide as votes arrive](docs/screenshots/poll-live.gif)
 
 ### Quiz
 
