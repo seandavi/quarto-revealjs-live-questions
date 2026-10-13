@@ -90,7 +90,16 @@ The extension has to be listed twice, under `filters` and under
 
 ### 3. Run a server
 
-The quickest option is Cloudflare's free plan. You need
+The quickest option is Cloudflare's free plan. With a Cloudflare and a GitHub
+account you can do it from the browser:
+
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/seandavi/quarto-revealjs-live-questions)
+
+When it asks for `PRESENTER_KEY`, paste a long random value (for example the
+output of `openssl rand -hex 24`) and keep a copy. See
+[Cloudflare](#cloudflare-worker--durable-object) for what the button sets up.
+
+From the command line instead, you need
 [Bun](https://bun.sh), Node.js 22 or later (for Wrangler) and a Cloudflare
 account.
 
@@ -391,6 +400,26 @@ the same. Whichever you choose:
 Each session is one Durable Object (SQLite storage), which hibernates while
 nobody is sending anything. This fits Cloudflare's Workers free plan.
 
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/seandavi/quarto-revealjs-live-questions)
+
+The button copies this repository into your GitHub (or GitLab) account,
+creates the Worker and its Durable Object on your Cloudflare account, and
+connects the copy to [Workers Builds](https://developers.cloudflare.com/workers/ci-cd/builds/),
+so every push to its `main` branch redeploys. The setup page asks for one
+secret, `PRESENTER_KEY`: paste a long random value such as the output of
+`openssl rand -hex 24`, and keep a copy. Accept the suggested build and deploy
+commands. When it finishes, the Worker answers at
+`https://<worker-name>.<account>.workers.dev`; put that URL in
+`live-questions: server:`. To change the key later, go to the Worker's
+**Settings > Variables & Secrets** in the dashboard.
+
+To use your own host name, open the Worker in the dashboard and choose
+**Settings > Domains & Routes > Add > Custom Domain**. The domain's zone must
+be on the same Cloudflare account; Cloudflare creates the DNS record and
+certificate, and later pushes keep the domain.
+
+Or deploy from the command line:
+
 ```bash
 bun install
 bunx wrangler login
@@ -411,7 +440,8 @@ just deploy live-questions.example.org
 The domain is passed on the command line rather than written into
 `wrangler.jsonc`, so a fork of this repository doesn't try to claim yours.
 
-To run it locally, copy `.dev.vars.example` to `.dev.vars` and run
+To run it locally, copy `.dev.vars.example` to `.dev.vars`, set
+`PRESENTER_KEY` (any value, such as `dev`, is fine locally) and run
 `bunx wrangler dev` (`just dev-cf`).
 
 ### Docker
