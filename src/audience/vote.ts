@@ -422,6 +422,15 @@ class VotePage {
       input.focus();
       return;
     }
+    // The server truncates long answers as a backstop; catching it here lets
+    // the voter rephrase instead of having "confusing at times" land as
+    // "confusing at".
+    const words = normalizeAnswer(input.value, Number.MAX_SAFE_INTEGER)?.text.split(" ").length ?? 0;
+    if (words > maxWords) {
+      this.toast(maxWords === 1 ? "Just one word, please." : `Keep it to ${maxWords} words, please.`);
+      input.select();
+      return;
+    }
     const sent = this.mine.answers[id] ?? [];
     if (sent.some((a) => a.toLowerCase() === n.key)) {
       this.toast("You already sent that one.");
