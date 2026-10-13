@@ -77,6 +77,10 @@ live-questions:
 
 ### Configuration (`live-questions:` metadata)
 
+The filter also reads `extensions: live-questions:`, the form Quarto Wizard
+completes from `_schema.yml`. Keys are merged one by one, and a key set under
+top-level `live-questions:` wins.
+
 | Key | Default | Meaning |
 |---|---|---|
 | `server` | none | Server origin. Without it the deck renders questions statically. |

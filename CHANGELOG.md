@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 The wire protocol has its own version (`PROTOCOL_VERSION` in
 `src/shared/protocol.ts`); a change to it is always called out here.
 
+## [Unreleased]
+
+### Added
+
+- [Quarto Wizard](https://m.canouil.dev/quarto-wizard/) support: a
+  `_schema.yml` describing the deck options, the `.poll`, `.wordcloud` and
+  `.likert` classes and their attributes, and a `_snippets.json` with
+  front-matter, poll, quiz, word cloud and rating-scale snippets.
+- Deck options can also be set under `extensions: live-questions:`, the form
+  Quarto Wizard completes. A key set under top-level `live-questions:` takes
+  precedence.
+
+### Fixed
+
+- A non-map `live-questions:` value, such as `live-questions: oops`, now warns
+  at render time instead of being silently ignored.
+
 ## [1.0.0] — 2026-10-13
 
 First public release. Protocol version 1.
