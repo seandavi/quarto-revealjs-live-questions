@@ -1,1 +1,479 @@
-/* TODO: CSS for plugin */
+/*
+ * live-poll: question slides, QR overlay and toasts.
+ * Everything is scoped to .lp-* and colored from the reveal theme's CSS
+ * variables, so it follows light and dark themes.
+ */
+
+.lp-question,
+.lp-overlay,
+.lp-toast {
+  --lp-fg: var(--r-main-color, #222);
+  --lp-bg: var(--r-background-color, #fff);
+  --lp-accent: var(--r-link-color, #2a76dd);
+  --lp-heading-font: var(--r-heading-font, inherit);
+  --lp-mono: var(--r-code-font, ui-monospace, SFMono-Regular, Menlo, monospace);
+  --lp-muted: color-mix(in srgb, var(--lp-fg) 60%, var(--lp-bg));
+  --lp-faint: color-mix(in srgb, var(--lp-fg) 35%, var(--lp-bg));
+  --lp-track: color-mix(in srgb, var(--lp-fg) 8%, var(--lp-bg));
+  --lp-line: color-mix(in srgb, var(--lp-fg) 16%, var(--lp-bg));
+  --lp-good: color-mix(in oklab, #16a34a 88%, var(--lp-fg));
+  --lp-bad: color-mix(in oklab, #dc2626 88%, var(--lp-fg));
+}
+
+/* ---- question layout ------------------------------------------------------ */
+
+.reveal .lp-question.lp-active {
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  height: 480px; /* replaced by the plugin with the space left on the slide */
+  margin: 0.5em 0 0;
+  font-size: 0.6em;
+  line-height: 1.3;
+  text-align: left;
+  color: var(--lp-fg);
+}
+
+.reveal .lp-question.lp-active > .lp-source {
+  display: none;
+}
+
+.lp-body {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 1.75em;
+}
+
+.lp-main {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+.reveal .lp-main > .lp-text {
+  margin: 0 0 0.6em;
+  font-size: 1.15em;
+}
+.reveal .lp-main > .lp-text > :first-child { margin-top: 0; }
+.reveal .lp-main > .lp-text > :last-child { margin-bottom: 0; }
+
+/* ---- bar chart -------------------------------------------------------------- */
+
+.lp-bars {
+  --lp-fit: 1;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: calc(0.8em * var(--lp-fit));
+  font-size: calc(1em * var(--lp-fit));
+}
+
+.lp-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 4.4em;
+  grid-template-areas:
+    "label label"
+    "track stat";
+  column-gap: 0.7em;
+  row-gap: 0.3em;
+  align-items: center;
+  transition: opacity 0.5s ease;
+}
+
+.reveal .lp-label {
+  grid-area: label;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+.reveal .lp-label code { font-size: 0.9em; }
+.reveal .lp-label p { margin: 0; }
+
+.lp-track {
+  grid-area: track;
+  height: 1.2em;
+  border-radius: 0.3em;
+  background: var(--lp-track);
+  overflow: hidden;
+}
+
+.lp-fill {
+  width: 0;
+  height: 100%;
+  border-radius: 0.3em;
+  background: color-mix(in srgb, var(--lp-accent) 72%, var(--lp-bg));
+  transition: width 0.8s cubic-bezier(0.22, 1, 0.36, 1), background-color 0.4s ease;
+}
+
+.lp-row.lp-lead .lp-fill {
+  background: var(--lp-accent);
+}
+
+.lp-stat {
+  grid-area: stat;
+  display: flex;
+  align-items: baseline;
+  justify-content: flex-start;
+  gap: 0.4em;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.lp-n {
+  font-weight: 700;
+  font-size: 1.1em;
+}
+.lp-pct {
+  color: var(--lp-muted);
+  font-size: 0.85em;
+}
+
+/* After a reveal: correct options in green with a check, the rest dimmed. */
+.lp-row.lp-correct .lp-fill { background: var(--lp-good); }
+.lp-row.lp-correct .lp-label { font-weight: 700; }
+.lp-row.lp-correct .lp-label::after {
+  content: "\2713";
+  margin-left: 0.4em;
+  color: var(--lp-good);
+  font-weight: 800;
+}
+.lp-row.lp-dim { opacity: 0.5; }
+.lp-row.lp-dim .lp-fill { background: color-mix(in srgb, var(--lp-fg) 30%, var(--lp-bg)); }
+
+/* ---- word cloud --------------------------------------------------------------- */
+
+.lp-cloud {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.lp-cloud-area {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  font-family: var(--lp-heading-font);
+  font-weight: 700;
+}
+
+.lp-word {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  line-height: 1;
+  white-space: nowrap;
+  color: var(--lp-accent);
+  transition:
+    transform 0.7s cubic-bezier(0.22, 1, 0.36, 1),
+    font-size 0.7s cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 0.5s ease,
+    color 0.3s ease;
+  user-select: none;
+}
+.lp-word.lp-enter { opacity: 0; }
+.lp-word[data-tone="1"] { color: color-mix(in oklab, var(--lp-accent) 70%, var(--lp-fg)); }
+.lp-word[data-tone="2"] { color: var(--lp-fg); }
+.lp-word[data-tone="3"] { color: color-mix(in oklab, var(--lp-accent) 45%, var(--lp-fg)); }
+.lp-word[data-tone="4"] { color: color-mix(in srgb, var(--lp-fg) 72%, var(--lp-bg)); }
+
+.lp-moderated .lp-word { cursor: pointer; }
+.lp-moderated .lp-word:hover,
+.lp-moderated .lp-word:focus-visible {
+  outline: none;
+  color: var(--lp-bad);
+  text-decoration: line-through;
+  text-decoration-thickness: 0.08em;
+}
+
+.lp-cloud.lp-empty .lp-cloud-area::after {
+  content: "Waiting for answers\2026";
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: var(--lp-faint);
+  font-family: inherit;
+  font-weight: 400;
+  font-size: 1.1em;
+}
+
+.lp-tray {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35em;
+  margin-top: 0.4em;
+  padding-top: 0.4em;
+  border-top: 1px dashed var(--lp-line);
+  font-size: 0.6em;
+}
+.lp-tray[hidden] { display: none !important; }
+.lp-tray-label {
+  color: var(--lp-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 700;
+  margin-right: 0.3em;
+}
+.reveal .lp-btn.lp-chip {
+  text-decoration: line-through;
+  color: var(--lp-muted);
+}
+.reveal .lp-btn.lp-chip:hover {
+  text-decoration: none;
+  color: var(--lp-fg);
+}
+
+/* ---- results hidden ------------------------------------------------------------- */
+
+.lp-veil { display: none; }
+
+.lp-results-hidden .lp-fill,
+.lp-results-hidden .lp-stat,
+.lp-results-hidden .lp-cloud-area > * {
+  visibility: hidden;
+}
+.lp-results-hidden .lp-cloud.lp-empty .lp-cloud-area::after { content: none; }
+
+.lp-results-hidden .lp-track { opacity: 0.55; }
+.lp-results-hidden .lp-veil {
+  display: block;
+  align-self: flex-start;
+  margin-top: 0.2em;
+  padding: 0.25em 0.8em;
+  border: 1px dashed var(--lp-line);
+  border-radius: 999px;
+  color: var(--lp-muted);
+  font-size: 0.65em;
+  letter-spacing: 0.04em;
+}
+.lp-results-hidden.lp-wordcloud .lp-veil {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  margin: 0;
+  transform: translate(-50%, -50%);
+  font-size: 0.9em;
+}
+html[data-lp-mode="presenter"] .lp-veil::after {
+  content: " \00b7  press T to show";
+}
+
+/* ---- side panel: QR, URL, count, status ------------------------------------------ */
+
+.lp-side {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45em;
+  width: 11.5em;
+  min-height: 0;
+}
+
+.lp-qr {
+  box-sizing: border-box;
+  width: 100%;
+  max-height: 100%;
+  aspect-ratio: 1;
+  padding: 0.3em;
+  border-radius: 0.5em;
+  background: #fff;
+  box-shadow: 0 0 0 1px var(--lp-line), 0 0.3em 1.2em color-mix(in srgb, #000 12%, transparent);
+}
+.lp-qr svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.lp-url {
+  max-width: 100%;
+  font-family: var(--lp-mono);
+  font-size: 0.72em;
+  font-weight: 600;
+  text-align: center;
+  overflow-wrap: anywhere;
+  color: var(--lp-fg);
+}
+
+.lp-count {
+  display: flex;
+  align-items: baseline;
+  gap: 0.35em;
+  margin-top: 0.3em;
+}
+.lp-count-n {
+  font-size: 2.1em;
+  font-weight: 800;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.lp-count-label { color: var(--lp-muted); }
+
+.lp-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.6em;
+  font-size: 0.68em;
+}
+.lp-joined { color: var(--lp-muted); }
+.lp-joined:empty { display: none; }
+
+.lp-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45em;
+  padding: 0.2em 0.75em;
+  border-radius: 999px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  background: var(--lp-track);
+  color: var(--lp-muted);
+}
+.lp-pill::before {
+  content: "";
+  width: 0.55em;
+  height: 0.55em;
+  border-radius: 50%;
+  background: currentColor;
+}
+.lp-pill[data-state="live"] {
+  background: color-mix(in srgb, var(--lp-good) 16%, transparent);
+  color: var(--lp-good);
+}
+.lp-pill[data-state="live"]::before { animation: lp-pulse 1.6s ease-in-out infinite; }
+.lp-pill[data-state="offline"] {
+  background: color-mix(in srgb, var(--lp-bad) 14%, transparent);
+  color: var(--lp-bad);
+}
+@keyframes lp-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.35; transform: scale(0.75); }
+}
+
+/* ---- presenter controls (hover / keyboard focus only) ------------------------------- */
+
+.lp-controls {
+  display: none;
+  gap: 0.4em;
+  margin-top: 0.2em;
+  font-size: 0.55em;
+}
+html[data-lp-mode="presenter"] .lp-controls {
+  display: flex;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+html[data-lp-mode="presenter"] .lp-question:hover .lp-controls,
+html[data-lp-mode="presenter"] .lp-question:focus-within .lp-controls {
+  opacity: 1;
+}
+
+.reveal .lp-btn {
+  font: inherit;
+  line-height: 1.2;
+  padding: 0.3em 0.75em;
+  border: 1px solid var(--lp-line);
+  border-radius: 0.4em;
+  background: var(--lp-bg);
+  color: var(--lp-fg);
+  cursor: pointer;
+}
+.reveal .lp-btn:hover:not(:disabled),
+.reveal .lp-btn:focus-visible {
+  border-color: var(--lp-accent);
+  color: var(--lp-accent);
+  outline: none;
+}
+.reveal .lp-btn.lp-danger:hover:not(:disabled) {
+  border-color: var(--lp-bad);
+  color: var(--lp-bad);
+}
+.reveal .lp-btn:disabled { opacity: 0.45; cursor: default; }
+
+/* ---- full-screen QR overlay (Q) ---------------------------------------------------- */
+
+.lp-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  background: color-mix(in srgb, var(--lp-bg) 94%, transparent);
+  backdrop-filter: blur(6px);
+  cursor: pointer;
+}
+.lp-overlay[hidden] { display: none !important; }
+
+.lp-overlay-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2.2vh;
+}
+.lp-overlay-title {
+  font-family: var(--lp-heading-font);
+  font-size: 6.5vh;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--lp-fg);
+}
+.lp-overlay-qr {
+  box-sizing: border-box;
+  width: min(66vh, 86vw);
+  aspect-ratio: 1;
+  padding: 1.2vh;
+  border-radius: 2vh;
+  background: #fff;
+  box-shadow: 0 1vh 5vh color-mix(in srgb, #000 22%, transparent);
+}
+.lp-overlay-qr svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.lp-overlay-url {
+  font-family: var(--lp-mono);
+  font-size: 4.6vh;
+  font-weight: 700;
+  color: var(--lp-accent);
+}
+
+/* ---- toast --------------------------------------------------------------------------- */
+
+.lp-toast {
+  position: absolute;
+  left: 50%;
+  bottom: 5%;
+  z-index: 61;
+  max-width: 80%;
+  padding: 0.6em 1.1em;
+  border-radius: 0.5em;
+  background: var(--lp-fg);
+  color: var(--lp-bg);
+  font-family: var(--r-main-font, sans-serif);
+  font-size: 18px;
+  box-shadow: 0 0.4em 1.5em color-mix(in srgb, #000 25%, transparent);
+  opacity: 0;
+  transform: translate(-50%, 0.6em);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  pointer-events: none;
+}
+.lp-toast.lp-show {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lp-fill,
+  .lp-word,
+  .lp-toast { transition: none; }
+  .lp-pill[data-state="live"]::before { animation: none; }
+}
