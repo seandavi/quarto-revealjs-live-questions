@@ -77,6 +77,7 @@ export class LivePoll {
     this.config = config;
     this.mode = embedded ? "embedded" : "viewer";
     document.documentElement.dataset.lpMode = this.mode;
+    document.documentElement.dataset.lpTone = themeTone(this.deck.getRevealElement());
 
     const server = config.server;
     const session = sessionOverride(window.location.search) ?? config.session;
@@ -276,11 +277,26 @@ export class LivePoll {
     if (!view) return this.toast?.show("No live poll on this slide");
     if (!this.presenter) return this.toast?.show("Only the presenter can reveal answers");
     const q = view.q;
+    if (q.type === "likert") return this.toast?.show("Rating scales have no answer to reveal");
     if (q.type !== "poll" || !q.correct?.length) {
       return this.toast?.show("This question has no correct answer marked");
     }
     if (this.send({ t: "reveal", id: q.id, correct: q.correct })) view.showResults();
   }
+}
+
+/**
+ * "dark" when the reveal theme's background is dark. The likert palette
+ * picks its dark-surface steps from this (CSS cannot compare colors).
+ */
+function themeTone(reveal: HTMLElement): "light" | "dark" {
+  const probe = document.createElement("span");
+  probe.style.color = "var(--r-background-color, #fff)";
+  reveal.append(probe);
+  const rgb = getComputedStyle(probe).color.match(/[\d.]+/g)?.map(Number) ?? [255, 255, 255];
+  probe.remove();
+  const [r = 255, g = 255, b = 255] = rgb;
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b < 128 ? "dark" : "light";
 }
 
 /**

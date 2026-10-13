@@ -12,6 +12,8 @@ import {
   type AudienceState,
   type ClientMessage,
   type ErrorCode,
+  type LikertQuestion,
+  type LikertResults,
   type Mine,
   type PollResults,
   type ServerMessage,
@@ -44,6 +46,25 @@ function h<K extends keyof HTMLElementTagNameMap>(
 const letter = (i: number) => String.fromCharCode(65 + i);
 const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 const pct = (n: number, total: number) => (total > 0 ? Math.round((100 * n) / total) : 0);
+
+/**
+ * Color slot of each point on an n-point labeled scale, matching the deck's
+ * diverging palette: "neg"/"pos" with a step 1 (near the middle) to 5 (the
+ * end), and "mid" for the neutral point of an odd scale.
+ */
+function tones(n: number): Array<{ side: "neg" | "mid" | "pos"; step: number }> {
+  const steps: Record<number, number[]> = { 1: [3], 2: [2, 4], 3: [1, 3, 5], 4: [1, 2, 4, 5], 5: [1, 2, 3, 4, 5] };
+  const arm = Math.floor(n / 2);
+  const arms = steps[arm] ?? steps[5]!;
+  return Array.from({ length: n }, (_, i) => {
+    if (n % 2 === 1 && i === arm) return { side: "mid" as const, step: 0 };
+    const away = i < arm ? arm - i : i - (n - arm) + 1;
+    return { side: i < arm ? ("neg" as const) : ("pos" as const), step: arms[away - 1]! };
+  });
+}
+
+/** A single statement taken from the prompt is not repeated under it. */
+const statementShown = (q: LikertQuestion) => !(q.statements.length === 1 && q.statements[0] === q.prompt);
 
 function storage(): Storage | null {
   try {
@@ -109,9 +130,11 @@ class VotePage {
   private retryTimer: number | undefined;
   private heartbeat: number | undefined;
   private state: AudienceState | null = null;
-  private mine: Mine = { votes: {}, answers: {} };
+  private mine: Mine = { votes: {}, answers: {}, ratings: {} };
   /** Optimistic poll choice while the server confirms it. */
   private pendingVote: { id: string; choice: number } | null = null;
+  /** Optimistic likert ratings while the server confirms them: "id statement" → choice. */
+  private pendingRatings = new Map<string, number>();
   /** Identity of the view currently in the DOM; rebuilt only when it changes. */
   private viewKey = "";
   private toastTimer: number | undefined;
@@ -188,11 +211,17 @@ class VotePage {
       case "audience":
         this.state = msg.state;
         if (this.pendingVote && this.pendingVote.id !== msg.state.live?.question.id) this.pendingVote = null;
+        if (msg.state.live?.status !== "open") this.pendingRatings.clear();
         return this.render();
       case "you":
-        this.mine = msg.mine;
+        // `ratings` is absent from servers that predate likert questions.
+        this.mine = { ...msg.mine, ratings: msg.mine.ratings ?? {} };
         if (this.pendingVote && this.mine.votes[this.pendingVote.id] === this.pendingVote.choice) {
           this.pendingVote = null;
+        }
+        for (const [key, choice] of this.pendingRatings) {
+          const [id = "", statement] = key.split(" ");
+          if (this.mine.ratings[id]?.[Number(statement)] === choice) this.pendingRatings.delete(key);
         }
         return this.render();
       case "error":
@@ -205,6 +234,7 @@ class VotePage {
 
   private onError(code: ErrorCode, message: string): void {
     this.pendingVote = null;
+    this.pendingRatings.clear();
     switch (code) {
       case "closed":
         this.toast("Voting has closed for this question.");
@@ -267,7 +297,7 @@ class VotePage {
     else {
       // Closed views are static: rebuild only when what they show changes.
       const id = live.question.id;
-      key = `closed|${JSON.stringify([live, this.mine.votes[id], this.mine.answers[id]])}`;
+      key = `closed|${JSON.stringify([live, this.mine.votes[id], this.mine.answers[id], this.mine.ratings[id]])}`;
     }
     const rebuild = key !== this.viewKey;
     this.viewKey = key;
@@ -283,6 +313,9 @@ class VotePage {
     } else if (live.status === "open" && live.question.type === "wordcloud") {
       if (rebuild) this.main.replaceChildren(this.cloudView(live.question));
       this.updateCloud(live.question.id, live.question.maxAnswers);
+    } else if (live.status === "open" && live.question.type === "likert") {
+      if (rebuild) this.main.replaceChildren(this.likertView(live.question));
+      this.updateLikert(live.question);
     } else if (rebuild) {
       this.main.replaceChildren(this.resultsView(live));
     }
@@ -469,11 +502,218 @@ class VotePage {
     if (button) button.disabled = left <= 0;
   }
 
+  // ---- likert
+
+  /** Words under a scale: both ends, and the neutral middle of an odd labeled scale. */
+  private scaleEnds(q: LikertQuestion): HTMLElement {
+    const n = q.labels.length;
+    const first = q.labels[0]!;
+    const last = q.labels[n - 1]!;
+    if (q.numeric) {
+      const [low, high] = q.anchors ?? ["", ""];
+      return h(
+        "div",
+        { class: "lk-ends", "aria-hidden": "true" },
+        h("span", {}, h("b", {}, first), ` = ${low || "lowest"}`),
+        h("span", {}, h("b", {}, last), ` = ${high || "highest"}`),
+      );
+    }
+    return h(
+      "div",
+      { class: "lk-ends", "aria-hidden": "true" },
+      h("span", {}, first),
+      n % 2 === 1 && n > 2 ? h("span", { class: "lk-mid" }, q.labels[(n - 1) / 2]!) : null,
+      h("span", {}, last),
+    );
+  }
+
+  private likertView(q: LikertQuestion): HTMLElement {
+    const n = q.labels.length;
+    const palette = tones(n);
+    const list = h("ol", { class: "lk-list" });
+    q.statements.forEach((statement, s) => {
+      const titleId = `lk-s${s}`;
+      const scale = h("div", {
+        class: `lk-scale${q.numeric ? " numeric" : ""}${n > 7 ? " wrap" : ""}`,
+        role: "radiogroup",
+        "aria-labelledby": statementShown(q) ? titleId : undefined,
+        "aria-label": statementShown(q) ? undefined : q.prompt || "Rating",
+      });
+      scale.style.setProperty("--n", String(n));
+      scale.style.setProperty("--half", String(Math.ceil(n / 2)));
+      q.labels.forEach((label, p) => {
+        const btn = h(
+          "button",
+          {
+            class: "lk-btn",
+            type: "button",
+            role: "radio",
+            "aria-checked": "false",
+            "aria-label": label,
+            "data-statement": s,
+            "data-choice": p,
+            "data-side": q.numeric ? undefined : palette[p]!.side,
+            "data-step": q.numeric ? undefined : palette[p]!.step,
+          },
+          q.numeric ? label : h("span", { class: "lk-dot", "aria-hidden": "true" }),
+        );
+        btn.addEventListener("click", () => this.rate(q, s, p));
+        scale.append(btn);
+      });
+      // Arrow keys move along the scale, as in a native radio group.
+      scale.addEventListener("keydown", (e) => {
+        const buttons = [...scale.querySelectorAll<HTMLButtonElement>(".lk-btn")];
+        const at = buttons.indexOf(document.activeElement as HTMLButtonElement);
+        const step = e.key === "ArrowRight" || e.key === "ArrowDown" ? 1 : e.key === "ArrowLeft" || e.key === "ArrowUp" ? -1 : 0;
+        if (at < 0 || !step) return;
+        e.preventDefault();
+        buttons[Math.min(buttons.length - 1, Math.max(0, at + step))]!.focus();
+      });
+      list.append(
+        h(
+          "li",
+          { class: "lk-item", "data-statement": s },
+          // A lone statement that is the prompt shows its choice in the line below instead.
+          statementShown(q)
+            ? h(
+                "div",
+                { class: "lk-top" },
+                h("p", { class: "lk-statement", id: titleId }, statement),
+                h("span", { class: "lk-picked", "aria-live": "polite" }),
+              )
+            : null,
+          scale,
+          this.scaleEnds(q),
+        ),
+      );
+    });
+    const many = q.statements.length > 1;
+    return h(
+      "section",
+      { class: "view" },
+      this.header(
+        q.prompt,
+        "open",
+        many ? "Rate each statement. You can change a rating until voting closes." : "Tap one. You can change it until voting closes.",
+      ),
+      list,
+      h("p", { class: "saved", id: "saved", "aria-live": "polite" }),
+    );
+  }
+
+  private rate(q: LikertQuestion, statement: number, choice: number): void {
+    const key = `${q.id} ${statement}`;
+    const shown = this.pendingRatings.get(key) ?? this.mine.ratings[q.id]?.[statement];
+    if (shown === choice) return;
+    if (!this.send({ t: "rate", id: q.id, statement, choice })) {
+      this.toast("You're offline. Tap again once you're reconnected.");
+      return;
+    }
+    this.pendingRatings.set(key, choice);
+    this.updateLikert(q);
+  }
+
+  private updateLikert(q: LikertQuestion): void {
+    const confirmed = this.mine.ratings[q.id] ?? [];
+    let rated = 0;
+    this.main.querySelectorAll<HTMLElement>(".lk-item").forEach((item) => {
+      const s = Number(item.dataset.statement);
+      const pending = this.pendingRatings.get(`${q.id} ${s}`);
+      const shown = pending ?? confirmed[s] ?? null;
+      if (shown !== null) rated++;
+      item.classList.toggle("rated", shown !== null);
+      const buttons = item.querySelectorAll<HTMLButtonElement>(".lk-btn");
+      buttons.forEach((btn) => {
+        const p = Number(btn.dataset.choice);
+        const on = p === shown;
+        btn.setAttribute("aria-checked", String(on));
+        btn.classList.toggle("selected", on);
+        btn.classList.toggle("pending", on && pending !== undefined);
+        btn.tabIndex = on || (shown === null && p === 0) ? 0 : -1;
+      });
+      const picked = item.querySelector(".lk-picked");
+      if (picked) picked.textContent = shown === null ? "" : q.labels[shown]!;
+    });
+    const saved = this.main.querySelector("#saved");
+    if (!saved) return;
+    const n = q.statements.length;
+    const sending = [...this.pendingRatings.keys()].some((k) => k.startsWith(`${q.id} `));
+    if (sending) saved.textContent = "Sending…";
+    else if (n === 1) saved.textContent = confirmed[0] != null ? `Rating saved: ${q.labels[confirmed[0]]}` : "";
+    else saved.textContent = rated === n ? `All ${n} rated. Thanks!` : `${rated} of ${n} rated`;
+  }
+
+  private likertResults(q: LikertQuestion, results: LikertResults | null): HTMLElement {
+    const r = results ?? { type: "likert", counts: q.statements.map(() => q.labels.map(() => 0)), voters: 0 };
+    const mine = this.mine.ratings[q.id] ?? [];
+    const palette = tones(q.labels.length);
+    const max = Math.max(1, ...r.counts.flat());
+    const list = h("ol", { class: "lk-list" });
+    q.statements.forEach((statement, s) => {
+      const counts = q.labels.map((_, p) => r.counts[s]?.[p] ?? 0);
+      const total = counts.reduce((a, b) => a + b, 0);
+      const my = mine[s] ?? null;
+      const dist = h("div", { class: "lk-dist", role: "img" });
+      dist.style.setProperty("--n", String(q.labels.length));
+      const described: string[] = [];
+      counts.forEach((c, p) => {
+        const fill = h("span", {
+          class: "lk-bar",
+          "data-side": q.numeric ? undefined : palette[p]!.side,
+          "data-step": q.numeric ? undefined : palette[p]!.step,
+        });
+        fill.style.setProperty("--h", `${(100 * c) / max}%`);
+        dist.append(
+          h(
+            "span",
+            { class: p === my ? "lk-col mine" : "lk-col" },
+            h("span", { class: "lk-col-n" }, c ? String(c) : ""),
+            fill,
+            q.numeric ? h("span", { class: "lk-col-label" }, q.labels[p]!) : null,
+          ),
+        );
+        described.push(`${q.labels[p]}: ${plural(c, "person", "people")}`);
+      });
+      dist.setAttribute("aria-label", described.join(", "));
+      let summary: string;
+      if (!total) summary = "No ratings";
+      else if (q.numeric) {
+        const mean = counts.reduce((a, c, p) => a + c * Number(q.labels[p]), 0) / total;
+        summary = `Average ${mean.toFixed(1)} · ${plural(total, "rating")}`;
+      } else {
+        const most = Math.max(...counts);
+        const tops = q.labels.filter((_, p) => counts[p] === most);
+        summary =
+          tops.length === 1
+            ? `Most common: ${tops[0]} (${pct(most, total)}%)`
+            : `Tied: ${tops.join(", ")} (${pct(most, total)}% each)`;
+      }
+      list.append(
+        h(
+          "li",
+          { class: "lk-item" },
+          h(
+            "div",
+            { class: "lk-top" },
+            statementShown(q) ? h("p", { class: "lk-statement" }, statement) : null,
+            my !== null ? h("span", { class: "tag lk-you" }, `You: ${q.labels[my]}`) : null,
+          ),
+          dist,
+          q.numeric ? null : this.scaleEnds(q),
+          h("p", { class: "lk-summary" }, summary),
+        ),
+      );
+    });
+    const note = r.voters ? `${plural(r.voters, "person", "people")} rated.` : "No ratings came in for this one.";
+    return h("section", { class: "view" }, this.header(q.prompt, "closed", note), list);
+  }
+
   // ---- results
 
   private resultsView(live: NonNullable<AudienceState["live"]>): HTMLElement {
     const q = live.question;
     const results = live.results;
+    if (q.type === "likert") return this.likertResults(q, results?.type === "likert" ? results : null);
     if (q.type === "poll") {
       const r = results?.type === "poll" ? results : ({ type: "poll", counts: q.options.map(() => 0), voters: 0 } satisfies PollResults);
       const total = r.counts.reduce((a, b) => a + b, 0);

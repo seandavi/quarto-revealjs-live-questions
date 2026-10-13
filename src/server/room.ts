@@ -1,5 +1,5 @@
 /**
- * Room core: one session's questions, votes and answers.
+ * Room core: one session's questions, votes, answers and ratings.
  *
  * Pure TypeScript with no I/O, timers or runtime APIs, so it type-checks for
  * both Node and Workers and every rule in SPEC.md "Room rules" is unit-tested
@@ -59,6 +59,8 @@ interface Entry {
   votes: Map<string, number>;
   /** voter → answers in submission order (word clouds). */
   answers: Map<string, Answer[]>;
+  /** voter → scale point per statement, null where unrated (likert). */
+  ratings: Map<string, Array<number | null>>;
   /** key → first spelling seen; insertion order breaks count ties. */
   display: Map<string, string>;
   /** key → display form of hidden entries. */
@@ -76,6 +78,8 @@ export interface RoomData {
     revealed: number[] | null;
     votes: Array<[string, number]>;
     answers: Array<[string, Answer[]]>;
+    /** Absent in rooms stored before likert questions existed. */
+    ratings?: Array<[string, Array<number | null>]>;
     display: Array<[string, string]>;
     hidden: Array<[string, string]>;
   }>;
@@ -99,7 +103,19 @@ function sameQuestion(a: Question, b: Question): boolean {
   if (a.type === "wordcloud" && b.type === "wordcloud") {
     return a.maxWords === b.maxWords && a.maxAnswers === b.maxAnswers;
   }
+  if (a.type === "likert" && b.type === "likert") {
+    return (
+      a.numeric === b.numeric &&
+      sameStrings(a.statements, b.statements) &&
+      sameStrings(a.labels, b.labels) &&
+      (a.anchors === null ? b.anchors === null : b.anchors !== null && sameStrings(a.anchors, b.anchors))
+    );
+  }
   return false;
+}
+
+function sameStrings(a: readonly string[], b: readonly string[]): boolean {
+  return a.length === b.length && a.every((x, i) => x === b[i]);
 }
 
 function newEntry(question: Question): Entry {
@@ -109,6 +125,7 @@ function newEntry(question: Question): Entry {
     revealed: null,
     votes: new Map(),
     answers: new Map(),
+    ratings: new Map(),
     display: new Map(),
     hidden: new Map(),
   };
@@ -118,6 +135,7 @@ function clearResults(e: Entry): void {
   e.revealed = null;
   e.votes.clear();
   e.answers.clear();
+  e.ratings.clear();
   e.display.clear();
   e.hidden.clear();
 }
@@ -159,6 +177,14 @@ export class Room {
             e.votes.set(voter, choice);
           }
         }
+      } else if (question.type === "likert") {
+        const n = question.labels.length;
+        const valid = (r: unknown) => r === null || (typeof r === "number" && Number.isInteger(r) && r >= 0 && r < n);
+        for (const [voter, list] of pairs(q.ratings)) {
+          if (typeof voter !== "string" || !Array.isArray(list) || list.length !== question.statements.length) continue;
+          if (!list.every(valid) || list.every((r) => r === null)) continue;
+          e.ratings.set(voter, list as Array<number | null>);
+        }
       } else {
         for (const [key, text] of pairs(q.display)) {
           if (typeof key === "string" && typeof text === "string") e.display.set(key, text);
@@ -193,6 +219,7 @@ export class Room {
         revealed: e.revealed,
         votes: [...e.votes],
         answers: [...e.answers],
+        ratings: [...e.ratings],
         display: [...e.display],
         hidden: [...e.hidden],
       })),
@@ -223,6 +250,8 @@ export class Room {
         return this.vote(sender.voter, msg.id, msg.choice);
       case "answer":
         return this.answer(sender.voter, msg.id, msg.text);
+      case "rate":
+        return this.rate(sender.voter, msg.id, msg.statement, msg.choice);
     }
   }
 
@@ -234,7 +263,7 @@ export class Room {
       this.questions.set(question.id, newEntry(question));
       changed = true;
     } else if (!sameQuestion(existing.question, question)) {
-      cleared = existing.votes.size > 0 || existing.answers.size > 0;
+      cleared = hasResponses(existing);
       clearResults(existing);
       existing.question = question;
       changed = true;
@@ -285,7 +314,7 @@ export class Room {
     }
     const e = this.questions.get(id);
     if (!e) return fail("unknown-question", `no question '${id}'`);
-    const hadVotes = e.votes.size > 0 || e.answers.size > 0;
+    const hadVotes = hasResponses(e);
     clearResults(e);
     return ok(true, hadVotes, hadVotes);
   }
@@ -340,12 +369,35 @@ export class Room {
     return ok(true, true);
   }
 
+  private rate(voter: string, id: QuestionId, statement: number, choice: number): Outcome {
+    const e = this.votable(id);
+    if (!("question" in e)) return e;
+    if (e.question.type !== "likert") return fail("bad-message", "not a rating scale");
+    const q = e.question;
+    if (statement < 0 || statement >= q.statements.length) return fail("bad-message", "statement out of range");
+    if (choice < 0 || choice >= q.labels.length) return fail("bad-message", "choice out of range");
+    const mine = e.ratings.get(voter) ?? q.statements.map(() => null);
+    if (mine[statement] === choice) return ok(false);
+    mine[statement] = choice;
+    e.ratings.set(voter, mine);
+    return ok(true, true);
+  }
+
   private results(e: Entry, presenter: boolean): Results {
     const q = e.question;
     if (q.type === "poll") {
       const counts: number[] = q.options.map(() => 0);
       for (const choice of e.votes.values()) counts[choice] = (counts[choice] ?? 0) + 1;
       return { type: "poll", counts, voters: e.votes.size };
+    }
+    if (q.type === "likert") {
+      const counts = q.statements.map(() => q.labels.map(() => 0));
+      for (const list of e.ratings.values()) {
+        list.forEach((choice, s) => {
+          if (choice !== null) counts[s]![choice]!++;
+        });
+      }
+      return { type: "likert", counts, voters: e.ratings.size };
     }
     const tally = new Map<string, number>();
     for (const list of e.answers.values()) {
@@ -400,12 +452,14 @@ export class Room {
 
   /** One voter's own votes and answers across the session. */
   mine(voter: string): Mine {
-    const mine: Mine = { votes: {}, answers: {} };
+    const mine: Mine = { votes: {}, answers: {}, ratings: {} };
     for (const [id, e] of this.questions) {
       const vote = e.votes.get(voter);
       if (vote !== undefined) mine.votes[id] = vote;
       const answers = e.answers.get(voter);
       if (answers?.length) mine.answers[id] = answers.map((a) => a.text);
+      const ratings = e.ratings.get(voter);
+      if (ratings) mine.ratings[id] = [...ratings];
     }
     return mine;
   }
@@ -415,6 +469,10 @@ export class Room {
     const { session, live, questions } = this.deckState(true, 0);
     return { session, live, questions };
   }
+}
+
+function hasResponses(e: Entry): boolean {
+  return e.votes.size > 0 || e.answers.size > 0 || e.ratings.size > 0;
 }
 
 function pairs(value: unknown): Array<[unknown, unknown]> {

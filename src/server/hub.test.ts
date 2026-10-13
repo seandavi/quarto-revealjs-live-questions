@@ -172,7 +172,7 @@ describe("Hub", () => {
 
     phones.forEach((p, i) => send(p, { t: "vote", id: "q1", choice: i % 2 }));
     // `you` goes out immediately, only to the voter
-    expect(phones[0]!.take()).toEqual([{ t: "you", mine: { votes: { q1: 0 }, answers: {} } }]);
+    expect(phones[0]!.take()).toEqual([{ t: "you", mine: { votes: { q1: 0 }, answers: {}, ratings: {} } }]);
     expect(deck.take()).toEqual([]);
     host.advance(BROADCAST_INTERVAL_MS - 1);
     expect(deck.take()).toEqual([]);
@@ -181,7 +181,7 @@ describe("Hub", () => {
     expect(decks.length).toBe(1);
     expect(decks[0]).toMatchObject({ t: "deck", state: { audience: 3, questions: { q1: { results: { counts: [2, 1] } } } } });
     // Audience state is unchanged while voting is open (results withheld), so phones get nothing.
-    expect(phones[1]!.take()).toEqual([{ t: "you", mine: { votes: { q1: 1 }, answers: {} } }]);
+    expect(phones[1]!.take()).toEqual([{ t: "you", mine: { votes: { q1: 1 }, answers: {}, ratings: {} } }]);
     expect(host.saved.length).toBe(2);
 
     phones[2]!.take();
@@ -201,7 +201,23 @@ describe("Hub", () => {
     phone.take();
     send(deck, { t: "reset", id: "q1" });
     host.advance(1000);
-    expect(phone.take().filter((m) => m.t === "you")).toEqual([{ t: "you", mine: { votes: {}, answers: {} } }]);
+    expect(phone.take().filter((m) => m.t === "you")).toEqual([{ t: "you", mine: { votes: {}, answers: {}, ratings: {} } }]);
+  });
+
+  test("ratings: `you` right away, results to decks in the next flush", () => {
+    const likert = { type: "likert", id: "l1", prompt: "P", statements: ["s1", "s2"], labels: ["0", "1", "2"], numeric: true, anchors: null };
+    const deck = connect();
+    hello(deck, "deck", "d1", "secret");
+    send(deck, { t: "open", question: likert });
+    const phone = connect();
+    hello(phone, "audience", "v1");
+    host.advance(1000);
+    deck.take();
+    phone.take();
+    send(phone, { t: "rate", id: "l1", statement: 1, choice: 2 });
+    expect(phone.take()).toEqual([{ t: "you", mine: { votes: {}, answers: {}, ratings: { l1: [null, 2] } } }]);
+    host.advance(BROADCAST_INTERVAL_MS);
+    expect(deck.take()).toMatchObject([{ t: "deck", state: { questions: { l1: { results: { counts: [[0, 0, 0], [0, 0, 1]], voters: 1 } } } } }]);
   });
 
   test("audience count updates when phones leave", () => {

@@ -8,11 +8,18 @@
  * Commands:
  *   poll <id> <prompt> <option>...    open a poll
  *   cloud <id> <prompt> [maxWords] [maxAnswers]   open a word cloud
+ *   likert <id> <prompt> <scale> <statement>...    open a likert question;
+ *                                     <scale> is agree-5, agree-7, a range
+ *                                     like 0-10, or labels like "No|Maybe|Yes"
  *   close <id> | reveal <id> <index>... | reset [id]
  *   votes <id> <count>...             simulate phones: <count> votes per option
  *   answers <id> <text>...            simulate one phone per answer
+ *   ratings <id> <counts>...          simulate phones rating a likert question:
+ *                                     one comma-separated list of counts per
+ *                                     scale point for each statement, e.g.
+ *                                     "1,2,5,3,1" "0,1,2,6,3"
  */
-import type { ClientMessage } from "../src/shared/protocol";
+import type { ClientMessage, LikertQuestion } from "../src/shared/protocol";
 import { PROTOCOL_VERSION, socketPath } from "../src/shared/protocol";
 
 const [base, key, session, command, ...args] = process.argv.slice(2);
@@ -41,8 +48,45 @@ function open(role: "deck" | "audience", voter: string): Promise<WebSocket> {
 
 const settle = () => new Promise((r) => setTimeout(r, 400));
 
+// The Lua filter's presets, repeated here so the CLI accepts the same names.
+const AGREE_5 = ["Strongly disagree", "Disagree", "Neutral", "Agree", "Strongly agree"];
+const AGREE_7 = ["Strongly disagree", "Disagree", "Somewhat disagree", "Neutral", "Somewhat agree", "Agree", "Strongly agree"];
+
+function scale(spec: string): Pick<LikertQuestion, "labels" | "numeric" | "anchors"> {
+  const range = /^(\d+)-(\d+)$/.exec(spec);
+  if (range) {
+    const lo = Number(range[1]);
+    const labels = Array.from({ length: Number(range[2]) - lo + 1 }, (_, i) => String(lo + i));
+    return { labels, numeric: true, anchors: null };
+  }
+  const labels = spec === "agree-5" ? AGREE_5 : spec === "agree-7" ? AGREE_7 : spec.split("|");
+  return { labels, numeric: false, anchors: null };
+}
+
+/** `ratings` arguments → one list of (statement, choice) pairs per simulated phone. */
+function phoneRatings(lists: string[]): Array<Array<[number, number]>> {
+  const phones: Array<Array<[number, number]>> = [];
+  lists.forEach((list, statement) => {
+    const choices = list.split(",").flatMap((c, choice) => Array<number>(Number(c)).fill(choice));
+    choices.forEach((choice, k) => (phones[k] ??= []).push([statement, choice]));
+  });
+  return phones;
+}
+
 async function main() {
   const [id = "", ...rest] = args;
+  if (command === "ratings") {
+    const sockets: WebSocket[] = [];
+    let n = 0;
+    for (const ratings of phoneRatings(rest)) {
+      const ws = await open("audience", `sim-ratings-${n++}`);
+      for (const [statement, choice] of ratings) ws.send(JSON.stringify({ t: "rate", id, statement, choice } satisfies ClientMessage));
+      sockets.push(ws);
+    }
+    await settle();
+    for (const ws of sockets) ws.close();
+    return;
+  }
   if (command === "votes" || command === "answers") {
     const sockets: WebSocket[] = [];
     let n = 0;
@@ -68,6 +112,9 @@ async function main() {
         t: "open",
         question: { type: "wordcloud", id, prompt: rest[0] ?? "", maxWords: Number(rest[1] ?? 3), maxAnswers: Number(rest[2] ?? 3) },
       };
+      break;
+    case "likert":
+      msg = { t: "open", question: { type: "likert", id, prompt: rest[0] ?? "", statements: rest.slice(2), ...scale(rest[1] ?? "agree-5") } };
       break;
     case "close":
       msg = { t: "close", id };

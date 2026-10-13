@@ -1,5 +1,6 @@
 --[[
-live-poll.lua: turn `.poll` and `.wordcloud` divs into live-poll questions.
+live-poll.lua: turn `.poll`, `.wordcloud` and `.likert` divs into live-poll
+questions.
 
 For revealjs output, each question div becomes
 
@@ -20,10 +21,24 @@ local LIMITS = {
   optionChars = 200,
   maxWordsCeiling = 10,
   maxAnswersCeiling = 10,
+  likertStatements = 6,
+  likertStatementChars = 200,
+  likertPoints = 11,
+  likertLabelChars = 40,
   idMaxChars = 64,
   sessionMaxChars = 64,
 }
-local DEFAULTS = { maxWords = 3, maxAnswers = 3 }
+local DEFAULTS = { maxWords = 3, maxAnswers = 3, scale = "agree-5" }
+
+-- Likert presets, resolved here so the server only ever sees explicit labels.
+-- Numeric scales ("0-10", "1-5", ...) are parsed in likert_scale().
+local SCALES = {
+  ["agree-5"] = { "Strongly disagree", "Disagree", "Neutral", "Agree", "Strongly agree" },
+  ["agree-7"] = {
+    "Strongly disagree", "Disagree", "Somewhat disagree", "Neutral",
+    "Somewhat agree", "Agree", "Strongly agree",
+  },
+}
 
 local CHECKED = "\u{2612}"   -- ☒  Pandoc's task-list "[x]"
 local UNCHECKED = "\u{2610}" -- ☐  Pandoc's task-list "[ ]"
@@ -174,6 +189,69 @@ local function int_attr(attrs, name, default, ceiling, where)
   return n
 end
 
+--- A short attribute value cut to n characters, with a warning.
+local function short_text(s, n, what, where)
+  s = trim((s or ""):gsub("%s+", " "))
+  if ulen(s) > n then
+    warn(("%s: %s is longer than %d characters; truncated"):format(where, what, n))
+    s = utruncate(s, n)
+  end
+  return s
+end
+
+--- Resolve a likert div's scale attributes to (labels, numeric, anchors).
+local function likert_scale(attrs, where)
+  local labels, numeric = nil, false
+  if attrs.labels ~= nil then
+    if attrs.scale ~= nil then
+      warn(("%s: both scale= and labels= given; using labels="):format(where))
+    end
+    labels = {}
+    for part in (attrs.labels .. "|"):gmatch("([^|]*)|") do
+      local label = short_text(part, LIMITS.likertLabelChars, "a scale label", where)
+      if label ~= "" then table.insert(labels, label) end
+    end
+    if #labels < 2 or #labels > LIMITS.likertPoints then
+      warn(("%s: labels= needs 2 to %d labels separated by |, found %d; using %s")
+        :format(where, LIMITS.likertPoints, #labels, DEFAULTS.scale))
+      labels = nil
+    end
+  else
+    local scale = trim(attrs.scale or DEFAULTS.scale)
+    local lo, hi = scale:match("^(%d+)%s*%-%s*(%d+)$")
+    if SCALES[scale] then
+      labels = SCALES[scale]
+    elseif lo then
+      lo, hi = tonumber(lo), tonumber(hi)
+      local points = hi - lo + 1
+      if points < 2 or points > LIMITS.likertPoints then
+        warn(("%s: scale=%q must span 2 to %d points (e.g. 0-10, 1-5); using %s")
+          :format(where, scale, LIMITS.likertPoints, DEFAULTS.scale))
+      else
+        labels, numeric = {}, true
+        for i = lo, hi do table.insert(labels, tostring(i)) end
+      end
+    else
+      warn(("%s: unknown scale=%q (use agree-5, agree-7, a range like 0-10, or labels=\"a|b|c\"); using %s")
+        :format(where, scale, DEFAULTS.scale))
+    end
+  end
+  labels = labels or SCALES[DEFAULTS.scale]
+
+  local anchors = nil
+  if attrs.low ~= nil or attrs.high ~= nil then
+    if numeric then
+      anchors = {
+        short_text(attrs.low, LIMITS.likertLabelChars, "low=", where),
+        short_text(attrs.high, LIMITS.likertLabelChars, "high=", where),
+      }
+    else
+      warn(("%s: low= and high= only apply to numeric scales; ignored"):format(where))
+    end
+  end
+  return labels, numeric, anchors
+end
+
 local function build_question(div, kind)
   local attrs = div.attributes
   local where = div.identifier ~= "" and ("#" .. div.identifier) or ("." .. kind .. " after \"" .. last_heading .. "\"")
@@ -181,7 +259,7 @@ local function build_question(div, kind)
   -- Split the div into its (first) list and everything else.
   local list, other = nil, pandoc.List()
   for _, b in ipairs(div.content) do
-    if list == nil and is_list(b) and kind == "poll" then
+    if list == nil and is_list(b) and kind ~= "wordcloud" then
       list = b
     else
       other:insert(b)
@@ -195,12 +273,17 @@ local function build_question(div, kind)
     local items = pandoc.List()
     for i, item in ipairs(list.content) do
       local checked, clean = strip_marker(item)
-      if checked then table.insert(correct, i - 1) end
+      if checked and kind == "poll" then table.insert(correct, i - 1) end
+      if checked ~= nil and kind == "likert" then
+        warn(("%s: task-list markers have no meaning in a .likert list; ignored"):format(where))
+      end
       items:insert(clean)
       local label = trim(pandoc.utils.stringify(pandoc.Div(clean)))
-      if ulen(label) > LIMITS.optionChars then
-        warn(("%s: option %d is longer than %d characters; truncated"):format(where, i, LIMITS.optionChars))
-        label = utruncate(label, LIMITS.optionChars)
+      local max = kind == "likert" and LIMITS.likertStatementChars or LIMITS.optionChars
+      if ulen(label) > max then
+        warn(("%s: %s %d is longer than %d characters; truncated")
+          :format(where, kind == "likert" and "statement" or "option", i, max))
+        label = utruncate(label, max)
       end
       table.insert(options, label)
     end
@@ -226,10 +309,25 @@ local function build_question(div, kind)
     prompt = utruncate(prompt, LIMITS.promptChars)
   end
 
-  -- Id: explicit, else generated from prompt and options.
+  -- Likert: the list items are statements on one shared scale. Without a
+  -- list, the prompt is the single statement.
+  local labels, numeric, anchors
+  if kind == "likert" then
+    labels, numeric, anchors = likert_scale(attrs, where)
+    if #options == 0 and prompt ~= "" then
+      options = { utruncate(prompt, LIMITS.likertStatementChars) }
+    end
+    if #options > LIMITS.likertStatements then
+      warn(("%s: a likert question may have at most %d statements, found %d")
+        :format(where, LIMITS.likertStatements, #options))
+    end
+  end
+
+  -- Id: explicit, else generated from prompt and options (and the scale).
   local id = div.identifier
   if id == "" then
     local basis = prompt .. "\n" .. table.concat(options, "\n")
+    if labels then basis = basis .. "\n" .. table.concat(labels, "|") end
     id = "q-" .. pandoc.utils.sha1(basis):sub(1, 10)
   elseif not valid_id(id) then
     warn(("question id %q must match [A-Za-z0-9][A-Za-z0-9_:.-]{0,63}; the server will reject it"):format(id))
@@ -254,6 +352,17 @@ local function build_question(div, kind)
     end
     q = { type = "poll", id = id, prompt = prompt, options = options, results = results }
     if #correct > 0 then q.correct = correct end
+  elseif kind == "likert" then
+    q = {
+      type = "likert",
+      id = id,
+      prompt = prompt,
+      statements = options,
+      labels = labels,
+      numeric = numeric,
+      anchors = anchors or pandoc.json.null,
+      results = results,
+    }
   else
     q = {
       type = "wordcloud",
@@ -271,10 +380,21 @@ local function transform(div, kind)
   question_count = question_count + 1
   local q, other, cleaned = build_question(div, kind)
 
+  -- A likert question's static form names its scale under the statements.
+  local scale_note = nil
+  if kind == "likert" then
+    local text = "Scale: " .. table.concat(q.labels, " \u{00b7} ")
+    if q.anchors ~= pandoc.json.null then
+      text = ("Scale: %s (%s) to %s (%s)"):format(q.labels[1], q.anchors[1], q.labels[#q.labels], q.anchors[2])
+    end
+    scale_note = pandoc.Para({ pandoc.Emph(pandoc.Inlines(text)) })
+  end
+
   if not is_reveal then
     -- Other formats: the prompt text (if any) and a plain list.
     local blocks = pandoc.List(other)
     if cleaned then blocks:insert(cleaned) end
+    if scale_note then blocks:insert(scale_note) end
     return blocks
   end
 
@@ -283,6 +403,7 @@ local function transform(div, kind)
     content:insert(pandoc.Div(other, pandoc.Attr("", { "lp-text" })))
   end
   if cleaned then content:insert(cleaned) end
+  if scale_note then content:insert(pandoc.Div({ scale_note }, pandoc.Attr("", { "lp-scale-note" }))) end
 
   local classes = { "lp-question", "lp-" .. kind }
   for _, c in ipairs(div.classes) do
@@ -322,6 +443,7 @@ return {
           local kind
           if div.classes:includes("poll") then kind = "poll"
           elseif div.classes:includes("wordcloud") then kind = "wordcloud"
+          elseif div.classes:includes("likert") then kind = "likert"
           else return nil end
           -- Return false so the walk does not descend into the result.
           return transform(div, kind), false

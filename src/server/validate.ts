@@ -60,7 +60,52 @@ export function validateQuestion(v: unknown): Question | string {
     }
     return { type: "wordcloud", id: v.id, prompt: v.prompt, maxWords, maxAnswers };
   }
-  return "question type must be 'poll' or 'wordcloud'";
+  if (v.type === "likert") return validateLikert(v, v.id, v.prompt);
+  return "question type must be 'poll', 'wordcloud' or 'likert'";
+}
+
+/** Numeric scale labels: consecutive integers, low to high ("0", "1", ...). */
+function consecutiveIntegers(labels: string[]): boolean {
+  return labels.every((l, i) => /^-?\d{1,6}$/.test(l) && Number(l) === Number(labels[0]) + i);
+}
+
+function validateLikert(v: Obj, id: string, prompt: string): Question | string {
+  const { statements, labels } = v;
+  if (!Array.isArray(statements) || statements.length < 1 || statements.length > LIMITS.likertStatements) {
+    return `a likert question needs 1 to ${LIMITS.likertStatements} statements`;
+  }
+  if (!statements.every((s) => isText(s, LIMITS.likertStatementChars))) {
+    return `statements must be strings of at most ${LIMITS.likertStatementChars} characters`;
+  }
+  if (!Array.isArray(labels) || labels.length < 2 || labels.length > LIMITS.likertPoints) {
+    return `a likert scale needs 2 to ${LIMITS.likertPoints} points`;
+  }
+  if (!labels.every((l) => isText(l, LIMITS.likertLabelChars))) {
+    return `scale labels must be strings of at most ${LIMITS.likertLabelChars} characters`;
+  }
+  const numeric = v.numeric ?? false;
+  if (typeof numeric !== "boolean") return "numeric must be a boolean";
+  if (numeric && !consecutiveIntegers(labels as string[])) {
+    return "a numeric scale's labels must be consecutive integers, low to high";
+  }
+  // Anchors only mean something on a numeric scale; elsewhere they are dropped.
+  let anchors: [string, string] | null = null;
+  if (numeric && v.anchors !== undefined && v.anchors !== null) {
+    const a = v.anchors;
+    if (!Array.isArray(a) || a.length !== 2 || !a.every((x) => isText(x, LIMITS.likertLabelChars))) {
+      return `anchors must be two strings of at most ${LIMITS.likertLabelChars} characters`;
+    }
+    anchors = [a[0] as string, a[1] as string];
+  }
+  return {
+    type: "likert",
+    id,
+    prompt,
+    statements: [...(statements as string[])],
+    labels: [...(labels as string[])],
+    numeric,
+    anchors,
+  };
 }
 
 /** Validate an already-decoded message. */
@@ -110,6 +155,11 @@ export function validateMessage(v: unknown): Parsed {
         return bad(`answers are at most ${LIMITS.answerInputChars} characters`);
       }
       return good({ t: "answer", id: v.id, text: v.text });
+    case "rate":
+      if (!isId(v.id)) return bad("invalid question id");
+      if (!isInt(v.statement)) return bad("statement must be an integer");
+      if (!isInt(v.choice)) return bad("choice must be an integer");
+      return good({ t: "rate", id: v.id, statement: v.statement, choice: v.choice });
     case "ping":
       return good({ t: "ping" });
     default:

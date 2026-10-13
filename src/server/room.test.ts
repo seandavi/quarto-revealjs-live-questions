@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import type { PollQuestion, WordcloudQuestion, WordcloudResults } from "../shared/protocol";
+import type { LikertQuestion, LikertResults, PollQuestion, WordcloudQuestion, WordcloudResults } from "../shared/protocol";
 import { Room, type Outcome, type Sender } from "./room";
 
 const presenter: Sender = { role: "deck", voter: "deck-1", presenter: true };
@@ -8,6 +8,15 @@ const phone = (voter: string): Sender => ({ role: "audience", voter, presenter: 
 
 const poll: PollQuestion = { type: "poll", id: "lang", prompt: "Language?", options: ["R", "Python", "Julia"] };
 const cloud: WordcloudQuestion = { type: "wordcloud", id: "mood", prompt: "Mood?", maxWords: 2, maxAnswers: 2 };
+const likert: LikertQuestion = {
+  type: "likert",
+  id: "fb",
+  prompt: "Feedback",
+  statements: ["Pace was right", "Examples helped"],
+  labels: ["Disagree", "Neutral", "Agree"],
+  numeric: false,
+  anchors: null,
+};
 
 function expectOk(o: Outcome) {
   if (!o.ok) throw new Error(`expected ok, got ${o.code}: ${o.message}`);
@@ -18,7 +27,7 @@ function expectErr(o: Outcome, code: string) {
   if (!o.ok) expect(o.code).toBe(code as never);
 }
 
-function roomWith(...questions: Array<PollQuestion | WordcloudQuestion>) {
+function roomWith(...questions: Array<PollQuestion | WordcloudQuestion | LikertQuestion>) {
   const room = Room.create("s1");
   for (const question of questions) expectOk(room.apply(presenter, { t: "open", question }));
   return room;
@@ -26,6 +35,7 @@ function roomWith(...questions: Array<PollQuestion | WordcloudQuestion>) {
 
 const cloudResults = (room: Room, presenterView = false) =>
   room.deckState(presenterView, 0).questions.mood!.results as WordcloudResults;
+const likertResults = (room: Room) => room.deckState(false, 0).questions.fb!.results as LikertResults;
 
 describe("permissions", () => {
   test("presenter-only messages need the presenter key", () => {
@@ -134,7 +144,7 @@ describe("reset", () => {
     const q = room.deckState(false, 0).questions.lang!;
     expect(q.status).toBe("open");
     expect(q.results).toMatchObject({ counts: [0, 0, 0], voters: 0 });
-    expect(room.mine("a")).toEqual({ votes: {}, answers: {} });
+    expect(room.mine("a")).toEqual({ votes: {}, answers: {}, ratings: {} });
   });
   test("whole session: drops all questions", () => {
     const room = roomWith(poll, cloud);
@@ -157,7 +167,7 @@ describe("vote", () => {
     const same = expectOk(room.apply(phone("a"), { t: "vote", id: "lang", choice: 1 }));
     expect(same.changed).toBe(false);
     expect(room.deckState(false, 0).questions.lang!.results).toEqual({ type: "poll", counts: [1, 1, 0], voters: 2 });
-    expect(room.mine("a")).toEqual({ votes: { lang: 1 }, answers: {} });
+    expect(room.mine("a")).toEqual({ votes: { lang: 1 }, answers: {}, ratings: {} });
   });
   test("requires the live, open question and a choice in range", () => {
     const room = roomWith(poll);
@@ -237,6 +247,74 @@ describe("hide", () => {
   });
 });
 
+describe("rate", () => {
+  test("last rating per statement wins; voters counts distinct raters", () => {
+    const room = roomWith(likert);
+    expect(likertResults(room)).toEqual({ type: "likert", counts: [[0, 0, 0], [0, 0, 0]], voters: 0 });
+    expectOk(room.apply(phone("a"), { t: "rate", id: "fb", statement: 0, choice: 2 }));
+    expectOk(room.apply(phone("b"), { t: "rate", id: "fb", statement: 1, choice: 0 }));
+    const change = expectOk(room.apply(phone("a"), { t: "rate", id: "fb", statement: 0, choice: 1 }));
+    expect(change.mineChanged).toBe(true);
+    const same = expectOk(room.apply(phone("a"), { t: "rate", id: "fb", statement: 0, choice: 1 }));
+    expect(same.changed).toBe(false);
+    expect(likertResults(room)).toEqual({ type: "likert", counts: [[0, 1, 0], [1, 0, 0]], voters: 2 });
+    expect(room.mine("a")).toEqual({ votes: {}, answers: {}, ratings: { fb: [1, null] } });
+    expectOk(room.apply(phone("a"), { t: "rate", id: "fb", statement: 1, choice: 2 }));
+    expect(room.mine("a").ratings).toEqual({ fb: [1, 2] });
+    expect(likertResults(room).voters).toBe(2);
+  });
+  test("requires the live, open question and indices in range", () => {
+    const room = roomWith(likert);
+    expectErr(room.apply(phone("a"), { t: "rate", id: "fb", statement: 2, choice: 0 }), "bad-message");
+    expectErr(room.apply(phone("a"), { t: "rate", id: "fb", statement: -1, choice: 0 }), "bad-message");
+    expectErr(room.apply(phone("a"), { t: "rate", id: "fb", statement: 0, choice: 3 }), "bad-message");
+    expectErr(room.apply(phone("a"), { t: "rate", id: "nope", statement: 0, choice: 0 }), "unknown-question");
+    expectErr(room.apply(phone("a"), { t: "vote", id: "fb", choice: 0 }), "bad-message");
+    expectErr(room.apply(phone("a"), { t: "answer", id: "fb", text: "x" }), "bad-message");
+    expectErr(room.apply(presenter, { t: "rate", id: "fb", statement: 0, choice: 0 }), "forbidden");
+    expectOk(room.apply(presenter, { t: "close", id: "fb" }));
+    expectErr(room.apply(phone("a"), { t: "rate", id: "fb", statement: 0, choice: 0 }), "closed");
+    const room2 = roomWith(poll);
+    expectErr(room2.apply(phone("a"), { t: "rate", id: "lang", statement: 0, choice: 0 }), "bad-message");
+  });
+  test("reveal and hide do not apply", () => {
+    const room = roomWith(likert);
+    expectErr(room.apply(presenter, { t: "reveal", id: "fb", correct: [0] }), "bad-message");
+    expectErr(room.apply(presenter, { t: "hide", id: "fb", text: "x", hidden: true }), "bad-message");
+  });
+  test("results are withheld from phones while open", () => {
+    const room = roomWith(likert);
+    expectOk(room.apply(phone("a"), { t: "rate", id: "fb", statement: 0, choice: 0 }));
+    expect(room.audienceState().live?.results).toBeNull();
+    expectOk(room.apply(presenter, { t: "close", id: "fb" }));
+    expect(room.audienceState().live?.results).toEqual({ type: "likert", counts: [[1, 0, 0], [0, 0, 0]], voters: 1 });
+  });
+  test("a changed scale, statement or anchor clears ratings; reset clears them too", () => {
+    const room = roomWith(likert);
+    expectOk(room.apply(phone("a"), { t: "rate", id: "fb", statement: 0, choice: 0 }));
+    expect(expectOk(room.apply(presenter, { t: "open", question: { ...likert, labels: [...likert.labels] } })).changed).toBe(false);
+    const o = expectOk(room.apply(presenter, { t: "open", question: { ...likert, labels: ["No", "Maybe", "Yes"] } }));
+    expect(o.allMineChanged).toBe(true);
+    expect(likertResults(room)).toEqual({ type: "likert", counts: [[0, 0, 0], [0, 0, 0]], voters: 0 });
+    expect(room.mine("a").ratings).toEqual({});
+
+    const num: LikertQuestion = { ...likert, statements: ["Confident?"], labels: ["0", "1", "2"], numeric: true, anchors: null };
+    const room2 = roomWith(num);
+    expectOk(room2.apply(phone("a"), { t: "rate", id: "fb", statement: 0, choice: 2 }));
+    const anchored = expectOk(room2.apply(presenter, { t: "open", question: { ...num, anchors: ["Not at all", "Very"] } }));
+    expect(anchored.allMineChanged).toBe(true);
+    expectOk(room2.apply(phone("a"), { t: "rate", id: "fb", statement: 0, choice: 1 }));
+    const reset = expectOk(room2.apply(presenter, { t: "reset", id: "fb" }));
+    expect(reset.allMineChanged).toBe(true);
+    expect(likertResults(room2).voters).toBe(0);
+  });
+  test("export includes ratings", () => {
+    const room = roomWith(likert);
+    expectOk(room.apply(phone("a"), { t: "rate", id: "fb", statement: 1, choice: 2 }));
+    expect(room.export().questions.fb!.results).toEqual({ type: "likert", counts: [[0, 0, 0], [0, 0, 1]], voters: 1 });
+  });
+});
+
 describe("dump / restore", () => {
   test("round-trips", () => {
     const room = roomWith(poll, cloud);
@@ -246,6 +324,8 @@ describe("dump / restore", () => {
     room.apply(presenter, { t: "open", question: poll });
     room.apply(phone("a"), { t: "vote", id: "lang", choice: 2 });
     room.apply(presenter, { t: "reveal", id: "lang", correct: [2] });
+    room.apply(presenter, { t: "open", question: likert });
+    room.apply(phone("a"), { t: "rate", id: "fb", statement: 1, choice: 0 });
     const copy = Room.restore("s1", JSON.parse(JSON.stringify(room.dump())));
     expect(copy.deckState(true, 0)).toEqual(room.deckState(true, 0));
     expect(copy.audienceState()).toEqual(room.audienceState());
@@ -256,5 +336,11 @@ describe("dump / restore", () => {
     expect(Room.restore("s1", "nope").deckState(false, 0).questions).toEqual({});
     const r = Room.restore("s1", { live: "x", questions: [{ question: { type: "bogus" } }, null, 7] });
     expect(r.deckState(false, 0)).toEqual({ session: "s1", live: null, questions: {}, audience: 0 });
+  });
+  test("drops malformed ratings and accepts rooms stored before likert existed", () => {
+    const ratings = [["a", [0, null]], ["b", [5, 0]], ["c", [0]], ["d", [null, null]], ["e", "x"]];
+    const r = Room.restore("s1", { questions: [{ question: likert, status: "closed", ratings }, { question: poll, votes: [["a", 1]] }] });
+    expect(likertResults(r)).toEqual({ type: "likert", counts: [[1, 0, 0], [0, 0, 0]], voters: 1 });
+    expect(r.mine("a")).toEqual({ votes: { lang: 1 }, answers: {}, ratings: { fb: [0, null] } });
   });
 });

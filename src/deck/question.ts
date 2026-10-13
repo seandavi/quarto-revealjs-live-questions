@@ -1,11 +1,12 @@
 /**
- * One question on a slide: results on the left (bars or cloud), and on the
+ * One question on a slide: results on the left (bars, cloud or likert), and on the
  * right the QR code, short URL, response count and status pill. Presenter
  * mode adds a control strip and word-cloud moderation.
  */
 
-import type { ClientMessage, PollResults, QuestionState, WordcloudResults } from "../shared/protocol";
+import type { ClientMessage, LikertResults, PollResults, QuestionState, WordcloudResults } from "../shared/protocol";
 import { BarChart } from "./bars";
+import { LikertChart } from "./likert";
 import { WordCloud } from "./cloud";
 import { button, h } from "./dom";
 import { qrSvg } from "./qr";
@@ -34,7 +35,7 @@ type Pill = "live" | "closed" | "offline";
 const PILL_TEXT: Record<Pill, string> = { live: "LIVE", closed: "CLOSED", offline: "OFFLINE" };
 
 export class QuestionView {
-  private readonly chart: BarChart | WordCloud;
+  private readonly chart: BarChart | WordCloud | LikertChart;
   private readonly main: HTMLElement;
   private readonly pill: HTMLElement;
   private readonly count: HTMLElement;
@@ -58,14 +59,16 @@ export class QuestionView {
 
     if (q.type === "poll") {
       this.chart = new BarChart(q.options, list ? Array.from(list.children) : []);
+    } else if (q.type === "likert") {
+      this.chart = new LikertChart(q, list ? Array.from(list.children) : []);
     } else {
       this.chart = new WordCloud((t, hidden) => ctx.send({ t: "hide", id: q.id, text: t, hidden }));
     }
 
-    // Shown while results are hidden: under the options for a poll, centered
-    // over the (empty) cloud for a word cloud.
+    // Shown while results are hidden: under the options for a poll or likert,
+    // centered over the (empty) cloud for a word cloud.
     const veil = h("div", { class: "lp-veil", text: "Results hidden" });
-    if (this.chart instanceof BarChart) this.chart.el.append(veil);
+    if (!(this.chart instanceof WordCloud)) this.chart.el.append(veil);
     this.main = h("div", { class: "lp-main" }, text, this.chart.el,
       this.chart instanceof WordCloud ? veil : null);
 
@@ -111,6 +114,8 @@ export class QuestionView {
 
     if (this.chart instanceof BarChart) {
       this.chart.update(results?.type === "poll" ? (results as PollResults) : null, qs?.revealed ?? null);
+    } else if (this.chart instanceof LikertChart) {
+      this.chart.update(results?.type === "likert" ? (results as LikertResults) : null);
     } else {
       this.chart.update(results?.type === "wordcloud" ? (results as WordcloudResults) : null);
     }
@@ -151,7 +156,7 @@ export class QuestionView {
     else this.fitBars();
   }
 
-  /** Shrink bar text until all rows fit in the results column. */
+  /** Shrink bar or likert text until all rows fit in the results column. */
   private fitBars(): void {
     const bars = this.chart.el;
     let scale = 1;

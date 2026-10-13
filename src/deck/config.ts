@@ -1,6 +1,6 @@
 /** Reading the filter's config and deciding which mode the deck runs in. */
 
-import { LIMITS } from "../shared/protocol";
+import { LIMITS, type Question } from "../shared/protocol";
 import type { LpConfig, LpQuestion } from "./types";
 
 export function readConfig(doc: Document = document): LpConfig | null {
@@ -51,7 +51,7 @@ export function readQuestion(el: HTMLElement): LpQuestion | null {
   if (!raw) return null;
   try {
     const q = JSON.parse(raw) as LpQuestion;
-    if (q.type !== "poll" && q.type !== "wordcloud") return null;
+    if (q.type !== "poll" && q.type !== "wordcloud" && q.type !== "likert") return null;
     return q;
   } catch (err) {
     console.warn(`[live-poll] bad data-lp on #${el.id}`, err);
@@ -60,10 +60,23 @@ export function readQuestion(el: HTMLElement): LpQuestion | null {
 }
 
 /** The definition sent in `open`: no `correct`, no `results`. */
-export function definition(q: LpQuestion) {
-  return q.type === "poll"
-    ? { type: q.type, id: q.id, prompt: q.prompt, options: q.options }
-    : { type: q.type, id: q.id, prompt: q.prompt, maxWords: q.maxWords, maxAnswers: q.maxAnswers };
+export function definition(q: LpQuestion): Question {
+  switch (q.type) {
+    case "poll":
+      return { type: q.type, id: q.id, prompt: q.prompt, options: q.options };
+    case "wordcloud":
+      return { type: q.type, id: q.id, prompt: q.prompt, maxWords: q.maxWords, maxAnswers: q.maxAnswers };
+    case "likert":
+      return {
+        type: q.type,
+        id: q.id,
+        prompt: q.prompt,
+        statements: q.statements,
+        labels: q.labels,
+        numeric: q.numeric,
+        anchors: q.anchors ?? null,
+      };
+  }
 }
 
 /** Audience URL encoded in the QR code. */
