@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 The wire protocol has its own version (`PROTOCOL_VERSION` in
 `src/shared/protocol.ts`); a change to it is always called out here.
 
+## [Unreleased]
+
+### Fixed
+
+- Cloudflare: a session stops saving once its stored data passes 2 MB,
+  Cloudflare's limit for one stored value. That's about 3,000 voters on a
+  10-question deck. Voting kept working from memory, but results rolled back
+  without warning when the Durable Object hibernated. Each question is now
+  stored under its own key, and each save writes only what changed. Sessions
+  stored by earlier versions are migrated on first load (#13).
+- The server no longer scans every connected phone to find a voter's own
+  sockets after each vote, which made large audiences slow (#14).
+
 ## [1.1.1] — 2026-10-14
 
 The first release with a published Docker image. The extension, the phone

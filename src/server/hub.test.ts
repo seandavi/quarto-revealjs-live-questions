@@ -38,8 +38,8 @@ class FakeHost implements HubHost<FakePeer> {
   close(p: FakePeer, code: number) {
     p.closed = code;
   }
-  persist(d: RoomData) {
-    this.saved.push(d);
+  persist(room: Room) {
+    this.saved.push(room.dump());
   }
   schedule(fn: () => void, ms: number) {
     this.timers.push({ at: this.clock + ms, fn });
@@ -231,5 +231,39 @@ describe("Hub", () => {
     hub.disconnected(phone);
     host.advance(1000);
     expect(deck.take()).toMatchObject([{ t: "deck", state: { audience: 0 } }]);
+  });
+
+  test("`you` reaches each of the voter's sockets and nobody else's, until they close", () => {
+    const deck = connect();
+    hello(deck, "deck", "d1", "secret");
+    send(deck, { t: "open", question: poll });
+    const [a, b, other] = [connect(), connect(), connect()];
+    hello(a, "audience", "v1");
+    hello(b, "audience", "v1");
+    hello(other, "audience", "v2");
+    for (const p of [a, b, other]) p.take();
+    send(a, { t: "vote", id: "q1", choice: 0 });
+    const you = { t: "you", mine: { votes: { q1: 0 }, answers: {}, ratings: {} } } as const;
+    expect(a.take()).toEqual([you]);
+    expect(b.take()).toEqual([you]);
+    expect(other.take()).toEqual([]);
+    host.all.delete(b);
+    hub.disconnected(b);
+    send(a, { t: "vote", id: "q1", choice: 1 });
+    expect(a.take().map((m) => m.t)).toEqual(["you"]);
+    expect(b.take()).toEqual([]);
+  });
+
+  test("a new Hub finds phones that said hello before it existed (hibernation)", () => {
+    const deck = connect();
+    hello(deck, "deck", "d1", "secret");
+    send(deck, { t: "open", question: poll });
+    const phone = connect();
+    hello(phone, "audience", "v1");
+    phone.take();
+    // A woken Durable Object builds a new Hub; the sockets and their info survive.
+    hub = new Hub(hub.room, host);
+    send(phone, { t: "vote", id: "q1", choice: 1 });
+    expect(phone.take()).toEqual([{ t: "you", mine: { votes: { q1: 1 }, answers: {}, ratings: {} } }]);
   });
 });

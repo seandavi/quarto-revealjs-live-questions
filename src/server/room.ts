@@ -85,6 +85,23 @@ export interface RoomData {
   }>;
 }
 
+/** One stored question. */
+export type QuestionData = RoomData["questions"][number];
+
+/**
+ * What changed since the last `takeChanges()`, for an adapter that stores
+ * each question under its own key (Cloudflare, where one stored value is
+ * capped at 2 MB).
+ */
+export interface RoomChanges {
+  /** `live` and the question order, when either may have changed. */
+  index: { live: QuestionId | null; order: QuestionId[] } | null;
+  /** Questions created or changed. */
+  questions: QuestionData[];
+  /** Questions that existed at the last `takeChanges()` and are now gone. */
+  removed: QuestionId[];
+}
+
 const ok = (changed: boolean, mineChanged = false, allMineChanged = false): Outcome => ({
   ok: true,
   changed,
@@ -144,6 +161,10 @@ export class Room {
   readonly session: string;
   private live: QuestionId | null = null;
   private readonly questions = new Map<QuestionId, Entry>();
+  /** Change tracking for `takeChanges()`. */
+  private readonly dirty = new Set<QuestionId>();
+  private indexDirty = false;
+  private stored = new Set<QuestionId>();
 
   private constructor(session: string) {
     this.session = session;
@@ -204,6 +225,7 @@ export class Room {
       room.questions.set(question.id, e);
     }
     if (typeof d.live === "string" && room.questions.has(d.live)) room.live = d.live;
+    room.stored = new Set(room.questions.keys());
     return room;
   }
 
@@ -213,17 +235,26 @@ export class Room {
       v: 1,
       session: this.session,
       live: this.live,
-      questions: [...this.questions.values()].map((e) => ({
-        question: e.question,
-        status: e.status,
-        revealed: e.revealed,
-        votes: [...e.votes],
-        answers: [...e.answers],
-        ratings: [...e.ratings],
-        display: [...e.display],
-        hidden: [...e.hidden],
-      })),
+      questions: [...this.questions.values()].map(dumpEntry),
     };
+  }
+
+  /**
+   * The changes since the last call (or since `restore`/`create`), then
+   * forget them. Only an adapter that stores questions separately calls it.
+   */
+  takeChanges(): RoomChanges {
+    const questions: QuestionData[] = [];
+    for (const id of this.dirty) {
+      const e = this.questions.get(id);
+      if (e) questions.push(dumpEntry(e));
+    }
+    const removed = [...this.stored].filter((id) => !this.questions.has(id));
+    const index = this.indexDirty ? { live: this.live, order: [...this.questions.keys()] } : null;
+    this.dirty.clear();
+    this.indexDirty = false;
+    this.stored = new Set(this.questions.keys());
+    return { index, questions, removed };
   }
 
   /** Apply one validated message from `sender`. Never throws. */
@@ -235,6 +266,29 @@ export class Room {
     } else if (sender.role !== "audience") {
       return fail("forbidden", `'${msg.t}' is for audience sockets only`);
     }
+    const previousLive = this.live;
+    const outcome = this.dispatch(sender, msg);
+    if (outcome.ok && outcome.changed) this.track(msg, previousLive);
+    return outcome;
+  }
+
+  /** Record which stored parts a change touched. */
+  private track(msg: RoomMessage, previousLive: QuestionId | null): void {
+    if (msg.t === "open") {
+      // Opening also closes the previously live question.
+      this.dirty.add(msg.question.id);
+      if (previousLive !== null) this.dirty.add(previousLive);
+      this.indexDirty = true;
+    } else if (msg.id === undefined) {
+      // `reset` of the whole session
+      this.dirty.clear();
+      this.indexDirty = true;
+    } else {
+      this.dirty.add(msg.id);
+    }
+  }
+
+  private dispatch(sender: Sender, msg: RoomMessage): Outcome {
     switch (msg.t) {
       case "open":
         return this.open(msg.question);
@@ -469,6 +523,19 @@ export class Room {
     const { session, live, questions } = this.deckState(true, 0);
     return { session, live, questions };
   }
+}
+
+function dumpEntry(e: Entry): QuestionData {
+  return {
+    question: e.question,
+    status: e.status,
+    revealed: e.revealed,
+    votes: [...e.votes],
+    answers: [...e.answers],
+    ratings: [...e.ratings],
+    display: [...e.display],
+    hidden: [...e.hidden],
+  };
 }
 
 function hasResponses(e: Entry): boolean {
