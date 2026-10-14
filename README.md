@@ -495,7 +495,7 @@ Update with `docker compose pull && docker compose up -d`. Image tags:
 | Tag | What it is |
 |---|---|
 | `latest` | The newest release. |
-| `1.1.0`, `1.1`, `1` | A release, or the newest release in that minor or major series. |
+| `1.1.1`, `1.1`, `1` | A release, or the newest release in that minor or major series. |
 | `main` | The current `main` branch. |
 | `sha-<commit>` | One commit of `main` or a release. |
 

@@ -7,7 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 The wire protocol has its own version (`PROTOCOL_VERSION` in
 `src/shared/protocol.ts`); a change to it is always called out here.
 
-## [Unreleased]
+## [1.1.1] — 2026-10-14
+
+The first release with a published Docker image. The extension, the phone
+page and the protocol are unchanged from 1.1.0.
 
 ### Added
 
@@ -79,6 +82,6 @@ First public release. Protocol version 1.
 - CI: type check, unit tests, bundle freshness check, Node smoke test, Worker
   dry-run bundle, Quarto render and Docker build with a smoke test.
 
-[Unreleased]: https://github.com/seandavi/quarto-revealjs-live-questions/compare/v1.1.0...HEAD
+[1.1.1]: https://github.com/seandavi/quarto-revealjs-live-questions/releases/tag/v1.1.1
 [1.1.0]: https://github.com/seandavi/quarto-revealjs-live-questions/releases/tag/v1.1.0
 [1.0.0]: https://github.com/seandavi/quarto-revealjs-live-questions/releases/tag/v1.0.0

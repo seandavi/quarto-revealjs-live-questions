@@ -4,7 +4,7 @@
 # Update with: docker compose pull && docker compose up -d
 services:
   live-questions:
-    # Published by CI. `latest` is the newest release; pin a release (1.1.0)
+    # Published by CI. `latest` is the newest release; pin a release (1.1.1)
     # or a major version (1) to update on your own schedule, or use `main`
     # for the current main branch.
     image: ghcr.io/seandavi/quarto-revealjs-live-questions:latest
