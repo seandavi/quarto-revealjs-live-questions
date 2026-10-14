@@ -479,10 +479,28 @@ To run it locally, copy `.dev.vars.example` to `.dev.vars`, set
 
 ### Docker
 
+CI publishes the server image to
+`ghcr.io/seandavi/quarto-revealjs-live-questions` for linux/amd64 and
+linux/arm64. `compose.yaml` runs it:
+
 ```bash
-cp .env.example .env          # set PRESENTER_KEY
-docker compose up -d --build
+curl -O https://raw.githubusercontent.com/seandavi/quarto-revealjs-live-questions/main/compose.yaml
+curl -o .env https://raw.githubusercontent.com/seandavi/quarto-revealjs-live-questions/main/.env.example
+# set PRESENTER_KEY in .env
+docker compose up -d
 ```
+
+Update with `docker compose pull && docker compose up -d`. Image tags:
+
+| Tag | What it is |
+|---|---|
+| `latest` | The newest release. |
+| `1.1.0`, `1.1`, `1` | A release, or the newest release in that minor or major series. |
+| `main` | The current `main` branch. |
+| `sha-<commit>` | One commit of `main` or a release. |
+
+To run your own changes, uncomment `build: .` in `compose.yaml` and run
+`docker compose up -d --build` from a checkout.
 
 The container listens on port 8787, runs as a non-root user and keeps
 results in the `live-questions-data` volume, one JSON file per session.

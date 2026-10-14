@@ -128,7 +128,11 @@ output and are not committed.
 
 CI runs the type check, unit tests, the bundle check, the Node smoke test,
 the Worker dry run, a Quarto render of `example.qmd` and a Docker build with
-a smoke test against the container.
+a smoke test against the container. Once all of those pass, it builds the
+image for linux/amd64 and linux/arm64. On pull requests it stops there; on a
+push to `main` or a `v*` tag it pushes the image to
+`ghcr.io/seandavi/quarto-revealjs-live-questions`, tagged as listed in the
+README's Docker section. A release tag (`v1.2.0`) is what moves `latest`.
 
 ## Commits and pull requests
 
