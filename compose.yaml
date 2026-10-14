@@ -1,10 +1,16 @@
-# docker compose up -d --build
+# docker compose up -d
 # Put the presenter key in .env (gitignored; see .env.example):
 #   PRESENTER_KEY=some-long-random-string
+# Update with: docker compose pull && docker compose up -d
 services:
   live-questions:
-    build: .
-    image: quarto-revealjs-live-questions
+    # Published by CI. `latest` is the newest release; pin a release (1.1.0)
+    # or a major version (1) to update on your own schedule, or use `main`
+    # for the current main branch.
+    image: ghcr.io/seandavi/quarto-revealjs-live-questions:latest
+    # To run your own changes, build from this checkout instead:
+    # docker compose up -d --build
+    # build: .
     restart: unless-stopped
     env_file: .env
     environment:
