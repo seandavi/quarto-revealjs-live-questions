@@ -444,10 +444,17 @@ decks are usually served from a different origin than the server.
   state). `you` is sent right away, only to the voter's own sockets. After a
   `reset`, or an `open` that redefines a question with votes, every phone gets
   a fresh `you` in the next flush.
-- Persistence is written in the same flush as the broadcast: on Cloudflare,
-  `ctx.storage.put("room", room.dump())`; on Node,
-  `$DATA_DIR/<session>.json`, written atomically (temp file and rename) and
-  loaded the first time the session is used.
+- Persistence is written in the same flush as the broadcast. On Cloudflare,
+  the Durable Object stores an `index` key (`live` and question order) and
+  one `q:<id>` key per question, and each flush writes only what changed
+  (`room.takeChanges()`). Cloudflare caps a stored key and value at 2 MB, so
+  a whole-room value would stop saving at a few thousand voters. A room
+  stored by 1.1.1 or earlier under a single `room` key is migrated on load.
+  On Node, the whole room goes to `$DATA_DIR/<session>.json`, written
+  atomically (temp file and rename) and loaded the first time the session is
+  used.
+- `you` goes to the voter's own sockets through a voter index kept by the
+  hub, not a scan of every socket.
 
 ### Room rules
 
