@@ -344,3 +344,78 @@ describe("dump / restore", () => {
     expect(r.mine("a")).toEqual({ votes: { lang: 1 }, answers: {}, ratings: { fb: [0, null] } });
   });
 });
+
+describe("takeChanges", () => {
+  const ids = (room: Room) => room.takeChanges().questions.map((q) => q.question.id);
+
+  test("reports only the questions a change touched, once", () => {
+    const room = roomWith(poll, cloud);
+    expect(room.takeChanges()).toMatchObject({ index: { live: "mood", order: ["lang", "mood"] }, removed: [] });
+    room.apply(phone("a"), { t: "answer", id: "mood", text: "hi" });
+    room.apply(phone("b"), { t: "answer", id: "mood", text: "yo" });
+    const changes = room.takeChanges();
+    expect(changes.index).toBeNull();
+    expect(changes.questions.map((q) => q.question.id)).toEqual(["mood"]);
+    expect(changes.questions[0]!.answers.length).toBe(2);
+    expect(room.takeChanges()).toEqual({ index: null, questions: [], removed: [] });
+  });
+
+  test("ignores rejected and no-op messages", () => {
+    const room = roomWith(poll);
+    room.apply(phone("a"), { t: "vote", id: "lang", choice: 1 });
+    room.takeChanges();
+    room.apply(phone("a"), { t: "vote", id: "lang", choice: 1 }); // same vote
+    room.apply(phone("a"), { t: "vote", id: "lang", choice: 9 }); // out of range
+    room.apply(phone("a"), { t: "vote", id: "nope", choice: 0 }); // unknown question
+    expect(room.takeChanges()).toEqual({ index: null, questions: [], removed: [] });
+  });
+
+  test("opening a question also reports the one it closed", () => {
+    const room = roomWith(poll);
+    room.takeChanges();
+    room.apply(presenter, { t: "open", question: cloud });
+    expect(ids(room).sort()).toEqual(["lang", "mood"]);
+  });
+
+  test("a session reset removes every stored question", () => {
+    const room = roomWith(poll, cloud);
+    room.takeChanges();
+    room.apply(presenter, { t: "reset" });
+    expect(room.takeChanges()).toEqual({ index: { live: null, order: [] }, questions: [], removed: ["lang", "mood"] });
+  });
+
+  test("a restored room starts clean", () => {
+    const room = Room.restore("s1", roomWith(poll, cloud).dump());
+    expect(room.takeChanges()).toEqual({ index: null, questions: [], removed: [] });
+    room.apply(presenter, { t: "reset" });
+    expect(room.takeChanges().removed).toEqual(["lang", "mood"]);
+  });
+
+  test("replaying changes into a key-value store rebuilds the room", () => {
+    const store = new Map<string, unknown>();
+    const save = (room: Room) => {
+      const { index, questions, removed } = room.takeChanges();
+      for (const q of questions) store.set(`q:${q.question.id}`, structuredClone(q));
+      for (const id of removed) store.delete(`q:${id}`);
+      if (index) store.set("index", structuredClone(index));
+    };
+    const load = () => {
+      const index = store.get("index") as { live: string | null; order: string[] };
+      return Room.restore("s1", { live: index.live, questions: index.order.map((id) => store.get(`q:${id}`)) });
+    };
+    const room = roomWith(poll);
+    room.apply(phone("a"), { t: "vote", id: "lang", choice: 2 });
+    save(room);
+    room.apply(presenter, { t: "reveal", id: "lang", correct: [2] });
+    room.apply(presenter, { t: "open", question: cloud });
+    room.apply(phone("a"), { t: "answer", id: "mood", text: "Hello" });
+    room.apply(presenter, { t: "hide", id: "mood", text: "hello", hidden: true });
+    save(room);
+    room.apply(presenter, { t: "reset" });
+    room.apply(presenter, { t: "open", question: likert });
+    room.apply(phone("b"), { t: "rate", id: "fb", statement: 0, choice: 1 });
+    save(room);
+    expect([...store.keys()].sort()).toEqual(["index", "q:fb"]);
+    expect(load().dump()).toEqual(room.dump());
+  });
+});
