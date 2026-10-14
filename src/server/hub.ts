@@ -68,6 +68,8 @@ export class Hub<P extends object> {
   private dirtyMineAll = false;
   /** Last broadcast payloads, so unchanged states are not re-sent. */
   private sent: { deck?: string; presenter?: string; audience?: string } = {};
+  /** voter → their audience sockets, so `you` doesn't scan every socket. Built on first use. */
+  private byVoter: Map<string, Set<P>> | null = null;
 
   constructor(
     readonly room: Room,
@@ -106,6 +108,7 @@ export class Hub<P extends object> {
       const presenter = msg.role === "deck" && keyMatches(msg.key, this.host.presenterKey);
       const next: PeerInfo = { role: msg.role, voter: msg.voter, presenter };
       this.host.setInfo(peer, next);
+      if (next.role === "audience") this.addVoter(peer, next.voter);
       this.send(peer, JSON.stringify({ t: "welcome", v: PROTOCOL_VERSION, presenter } satisfies ServerMessage));
       if (next.role === "deck") {
         this.send(peer, this.deckPayload(presenter, this.audienceCount()));
@@ -129,7 +132,11 @@ export class Hub<P extends object> {
 
   /** A socket closed. Decks get a new audience count. */
   disconnected(peer: P): void {
-    if (this.host.info(peer)?.role === "audience") this.schedule();
+    const info = this.host.info(peer);
+    if (info?.role !== "audience") return;
+    const sockets = this.byVoter?.get(info.voter);
+    if (sockets?.delete(peer) && sockets.size === 0) this.byVoter!.delete(info.voter);
+    this.schedule();
   }
 
   /** Broadcast changed states and persist. Normally called by the scheduler. */
@@ -196,11 +203,33 @@ export class Hub<P extends object> {
   }
 
   private sendMine(voter: string): void {
+    const sockets = this.voters().get(voter);
+    if (!sockets) return;
     const payload = this.minePayload(voter);
-    for (const peer of this.host.peers()) {
-      const info = this.host.info(peer);
-      if (info?.role === "audience" && info.voter === voter) this.send(peer, payload);
+    for (const peer of sockets) this.send(peer, payload);
+  }
+
+  /**
+   * The voter index. Built from `peers()` the first time, because a Durable
+   * Object waking from hibernation gets a new Hub with sockets that already
+   * said hello; `hello` and `disconnected` keep it current after that.
+   */
+  private voters(): Map<string, Set<P>> {
+    if (!this.byVoter) {
+      this.byVoter = new Map();
+      for (const peer of this.host.peers()) {
+        const info = this.host.info(peer);
+        if (info?.role === "audience") this.addVoter(peer, info.voter);
+      }
     }
+    return this.byVoter;
+  }
+
+  private addVoter(peer: P, voter: string): void {
+    const index = this.voters();
+    let sockets = index.get(voter);
+    if (!sockets) index.set(voter, (sockets = new Set()));
+    sockets.add(peer);
   }
 
   private error(peer: P, code: ErrorCode, message: string): void {
