@@ -1,7 +1,9 @@
 # syntax=docker/dockerfile:1
 
 # Build: bundle the Node server and the audience page script with Bun.
-FROM oven/bun:1.3 AS build
+# The output is plain JavaScript, so this stage runs on the build host's own
+# platform and a multi-platform build bundles once, without emulating Bun.
+FROM --platform=$BUILDPLATFORM oven/bun:1.3 AS build
 WORKDIR /app
 COPY package.json bun.lock ./
 # Runtime dependencies are all the bundler needs (no wrangler/workerd).

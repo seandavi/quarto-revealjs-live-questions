@@ -4,6 +4,8 @@ on:
   pull_request:
   push:
     branches: [main]
+    # A release tag (v1.2.0) runs the full suite and publishes the image.
+    tags: ["v*"]
 
 permissions:
   contents: read
@@ -146,3 +148,49 @@ jobs:
       - name: Container log
         if: always()
         run: docker logs live-questions || true
+
+  publish:
+    name: Multi-platform image (pushed to GHCR on main and tags)
+    # Publish only what every other job has passed.
+    needs: [test, bundle, smoke-node, worker, render, docker]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v5
+      # Only the final Node stage runs per platform (see the Dockerfile), so
+      # emulating arm64 costs little.
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        if: github.event_name == 'push'
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      # Tags: v1.2.3 gives 1.2.3, 1.2, 1 and latest (a pre-release such as
+      # v1.3.0-rc.1 gives only its own version); main gives main; every push
+      # also gives sha-<commit>.
+      - id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            type=ref,event=branch
+            type=sha
+      # Pull requests build both platforms without pushing.
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: ${{ github.event_name == 'push' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          annotations: ${{ steps.meta.outputs.annotations }}
+          cache-from: type=gha,scope=publish
+          cache-to: type=gha,scope=publish,mode=max

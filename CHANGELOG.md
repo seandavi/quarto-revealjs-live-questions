@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 The wire protocol has its own version (`PROTOCOL_VERSION` in
 `src/shared/protocol.ts`); a change to it is always called out here.
 
+## [Unreleased]
+
+### Added
+
+- The server image is published to
+  `ghcr.io/seandavi/quarto-revealjs-live-questions` for linux/amd64 and
+  linux/arm64. Each release gets its version, minor, major and `latest` tags,
+  `main` gets a `main` tag, and every push also gets a `sha-<commit>` tag.
+
+### Changed
+
+- `compose.yaml` runs the published image instead of building from a checkout
+  (`build: .` stays as a commented-out option).
+
 ## [1.1.0] — 2026-10-13
 
 ### Added
@@ -65,5 +79,6 @@ First public release. Protocol version 1.
 - CI: type check, unit tests, bundle freshness check, Node smoke test, Worker
   dry-run bundle, Quarto render and Docker build with a smoke test.
 
+[Unreleased]: https://github.com/seandavi/quarto-revealjs-live-questions/compare/v1.1.0...HEAD
 [1.1.0]: https://github.com/seandavi/quarto-revealjs-live-questions/releases/tag/v1.1.0
 [1.0.0]: https://github.com/seandavi/quarto-revealjs-live-questions/releases/tag/v1.0.0
