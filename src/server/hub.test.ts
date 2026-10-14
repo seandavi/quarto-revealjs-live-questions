@@ -38,8 +38,8 @@ class FakeHost implements HubHost<FakePeer> {
   close(p: FakePeer, code: number) {
     p.closed = code;
   }
-  persist(d: RoomData) {
-    this.saved.push(d);
+  persist(room: Room) {
+    this.saved.push(room.dump());
   }
   schedule(fn: () => void, ms: number) {
     this.timers.push({ at: this.clock + ms, fn });

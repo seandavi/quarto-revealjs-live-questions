@@ -11,7 +11,7 @@
 import { PROTOCOL_VERSION, type ErrorCode, type Role, type ServerMessage } from "../shared/protocol";
 import { keyMatches } from "./auth";
 import { AUDIENCE_LIMIT, TokenBucket } from "./ratelimit";
-import type { Room, RoomData } from "./room";
+import type { Room } from "./room";
 import { parseMessage } from "./validate";
 
 /** Exact heartbeat strings. Cloudflare answers these without waking the object. */
@@ -44,8 +44,12 @@ export interface HubHost<P extends object> {
   /** Send a text frame. May throw if the socket is closing; the hub catches. */
   send(peer: P, data: string): void;
   close(peer: P, code: number, reason: string): void;
-  /** Store the room. Called from the broadcast flush; must not throw. */
-  persist(data: RoomData): void;
+  /**
+   * Store the room after it changed: all of it (`room.dump()`) or only the
+   * changes (`room.takeChanges()`). Called from the broadcast flush; must
+   * not throw.
+   */
+  persist(room: Room): void;
   /** Run `fn` after `ms` milliseconds. */
   schedule(fn: () => void, ms: number): void;
   now(): number;
@@ -145,7 +149,7 @@ export class Hub<P extends object> {
     this.lastFlush = this.host.now();
     if (this.dirtyRoom) {
       this.dirtyRoom = false;
-      this.host.persist(this.room.dump());
+      this.host.persist(this.room);
     }
     const decks: Array<[P, PeerInfo]> = [];
     const phones: Array<[P, PeerInfo]> = [];

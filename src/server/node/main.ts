@@ -73,10 +73,10 @@ class Session implements HubHost<Peer> {
     return Date.now();
   }
 
-  /** Atomic write (temp file + rename), serialized, latest state wins. */
-  persist(data: RoomData): void {
+  /** Atomic write of the whole room (temp file + rename), serialized, latest state wins. */
+  persist(room: Room): void {
     const idle = this.pending === null;
-    this.pending = data;
+    this.pending = room.dump();
     if (!idle) return; // a queued write will pick up the newer data
     this.writing = this.writing.then(async () => {
       const next = this.pending;

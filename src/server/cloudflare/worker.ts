@@ -7,7 +7,8 @@
 import { DurableObject } from "cloudflare:workers";
 import { createApp } from "../app";
 import { Hub, PING, PONG, type HubHost, type PeerInfo } from "../hub";
-import { Room, type RoomData } from "../room";
+import { Room, type QuestionData, type RoomData } from "../room";
+import type { QuestionId } from "../../shared/protocol";
 import { isSession } from "../validate";
 
 export interface Env {
@@ -18,6 +19,32 @@ export interface Env {
 
 /** Header carrying the session name from the Worker to its Durable Object. */
 const SESSION_HEADER = "x-live-questions-session";
+
+/**
+ * Storage layout: a small index plus one key per question, and each flush
+ * writes only what changed. Cloudflare caps a stored key and value at 2 MB,
+ * so one whole-room value stopped saving at a few thousand voters.
+ */
+const INDEX_KEY = "index";
+const QUESTION_PREFIX = "q:";
+/** The whole room as one value, as stored by 1.1.1 and earlier. Migrated on load. */
+const LEGACY_KEY = "room";
+/** Most keys one storage `put` or `delete` call accepts. */
+const MAX_KEYS = 128;
+
+interface StoredIndex {
+  v: 2;
+  live: QuestionId | null;
+  order: QuestionId[];
+}
+
+const questionKey = (id: QuestionId) => QUESTION_PREFIX + id;
+
+function chunks<T>(items: T[]): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < items.length; i += MAX_KEYS) out.push(items.slice(i, i + MAX_KEYS));
+  return out;
+}
 
 /** Per-socket state kept across hibernation via `serializeAttachment`. */
 interface Attachment {
@@ -43,7 +70,8 @@ export default {
 } satisfies ExportedHandler<Env>;
 
 export class SessionRoom extends DurableObject<Env> implements HubHost<WebSocket> {
-  private stored: RoomData | undefined;
+  /** What `load` read, for `Room.restore`. */
+  private stored: unknown;
   private hub: Hub<WebSocket> | undefined;
   /** Decoded attachments, so broadcasts don't deserialize every socket each time. */
   private readonly attachments = new Map<WebSocket, Attachment>();
@@ -52,8 +80,41 @@ export class SessionRoom extends DurableObject<Env> implements HubHost<WebSocket
     super(ctx, env);
     ctx.setWebSocketAutoResponse(new WebSocketRequestResponsePair(PING, PONG));
     void ctx.blockConcurrencyWhile(async () => {
-      this.stored = await ctx.storage.get<RoomData>("room");
+      this.stored = await this.load();
     });
+  }
+
+  /** Read the room in the shape `Room.restore` accepts, migrating the legacy layout. */
+  private async load(): Promise<unknown> {
+    const storage = this.ctx.storage;
+    const index = await storage.get<StoredIndex>(INDEX_KEY);
+    if (index) {
+      const stored = await storage.list<QuestionData>({ prefix: QUESTION_PREFIX });
+      const order = Array.isArray(index.order) ? index.order : [];
+      return { live: index.live, questions: order.map((id) => stored.get(questionKey(id))) };
+    }
+    const legacy = await storage.get<RoomData>(LEGACY_KEY);
+    if (legacy) await this.migrate(legacy);
+    return legacy;
+  }
+
+  /** Rewrite a legacy whole-room value as index plus questions. */
+  private async migrate(legacy: RoomData): Promise<void> {
+    const questions = Array.isArray(legacy.questions) ? legacy.questions : [];
+    const entries: Array<[string, unknown]> = [];
+    const order: QuestionId[] = [];
+    for (const q of questions) {
+      const id = q?.question?.id;
+      if (typeof id !== "string") continue; // restore drops it too
+      order.push(id);
+      entries.push([questionKey(id), q]);
+    }
+    const index: StoredIndex = { v: 2, live: legacy.live ?? null, order };
+    entries.push([INDEX_KEY, index]);
+    // No await between these, so the writes commit together.
+    const writes = chunks(entries).map((c) => this.ctx.storage.put(Object.fromEntries(c)));
+    writes.push(this.ctx.storage.delete(LEGACY_KEY).then(() => undefined));
+    await Promise.all(writes);
   }
 
   get presenterKey(): string | undefined {
@@ -141,10 +202,15 @@ export class SessionRoom extends DurableObject<Env> implements HubHost<WebSocket
   close(ws: WebSocket, code: number, reason: string): void {
     ws.close(code, reason);
   }
-  persist(data: RoomData): void {
-    this.stored = data;
-    this.ctx.storage.put("room", data).catch((err: unknown) => {
-      console.error("live-questions: failed to save room:", err);
+  persist(room: Room): void {
+    const { index, questions, removed } = room.takeChanges();
+    const entries: Array<[string, unknown]> = questions.map((q) => [questionKey(q.question.id), q]);
+    if (index) entries.push([INDEX_KEY, { v: 2, ...index } satisfies StoredIndex]);
+    const storage = this.ctx.storage;
+    const writes: Array<Promise<unknown>> = chunks(entries).map((c) => storage.put(Object.fromEntries(c)));
+    for (const keys of chunks(removed.map(questionKey))) writes.push(storage.delete(keys));
+    Promise.all(writes).catch((err: unknown) => {
+      console.error(`live-questions: failed to save session ${room.session}:`, err);
     });
   }
   schedule(fn: () => void, ms: number): void {
