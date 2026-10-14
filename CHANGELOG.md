@@ -7,11 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 The wire protocol has its own version (`PROTOCOL_VERSION` in
 `src/shared/protocol.ts`); a change to it is always called out here.
 
-## [Unreleased]
+## [1.2.0] — 2026-10-14
+
+Sessions on Cloudflare now keep saving with thousands of voters, and large
+audiences cost the server much less CPU. The extension, the phone page and
+the protocol are unchanged from 1.1.1.
+
+**Upgrading a Cloudflare server:** sessions saved by 1.1.1 or earlier are
+converted to the new storage layout the first time they load. This is one-way:
+if you deploy 1.2.0 and then roll back to 1.1.x, converted sessions show as
+empty (their data stays in storage). Docker servers are unaffected.
 
 ### Fixed
 
-- Cloudflare: a session stops saving once its stored data passes 2 MB,
+- Cloudflare: a session stopped saving once its stored data passed 2 MB,
   Cloudflare's limit for one stored value. That's about 3,000 voters on a
   10-question deck. Voting kept working from memory, but results rolled back
   without warning when the Durable Object hibernated. Each question is now
@@ -95,6 +104,7 @@ First public release. Protocol version 1.
 - CI: type check, unit tests, bundle freshness check, Node smoke test, Worker
   dry-run bundle, Quarto render and Docker build with a smoke test.
 
+[1.2.0]: https://github.com/seandavi/quarto-revealjs-live-questions/releases/tag/v1.2.0
 [1.1.1]: https://github.com/seandavi/quarto-revealjs-live-questions/releases/tag/v1.1.1
 [1.1.0]: https://github.com/seandavi/quarto-revealjs-live-questions/releases/tag/v1.1.0
 [1.0.0]: https://github.com/seandavi/quarto-revealjs-live-questions/releases/tag/v1.0.0
