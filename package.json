@@ -29,12 +29,12 @@
     "ws": "^8.22.0"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^5.20261013.1",
+    "@cloudflare/workers-types": "^5.20261016.1",
     "@types/bun": "^1.4.3",
     "@types/node": "^26.6.5",
     "@types/ws": "^8.18.2",
     "typescript": "^7.0.2",
-    "wrangler": "^4.150.0"
+    "wrangler": "^4.151.1"
   },
   "cloudflare": {
     "bindings": {
