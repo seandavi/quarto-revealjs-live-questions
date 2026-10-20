@@ -3,7 +3,7 @@
 # Build: bundle the Node server and the audience page script with Bun.
 # The output is plain JavaScript, so this stage runs on the build host's own
 # platform and a multi-platform build bundles once, without emulating Bun.
-FROM --platform=$BUILDPLATFORM oven/bun:1.3 AS build
+FROM --platform=$BUILDPLATFORM oven/bun:1.4 AS build
 WORKDIR /app
 COPY package.json bun.lock ./
 # Runtime dependencies are all the bundler needs (no wrangler/workerd).
@@ -13,7 +13,7 @@ COPY public ./public
 RUN bun run build:audience && bun run build:node
 
 # Run: plain Node. dist/server.js is self-contained, so no node_modules.
-FROM node:24-slim
+FROM node:26-slim
 ENV NODE_ENV=production \
     PORT=8787 \
     DATA_DIR=/data
