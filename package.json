@@ -23,10 +23,10 @@
     "test": "bun test"
   },
   "dependencies": {
-    "@hono/node-server": "^2.1.5",
-    "hono": "^4.13.13",
+    "@hono/node-server": "^2.1.6",
+    "hono": "^4.13.17",
     "qrcode-generator": "^2.0.4",
-    "ws": "^8.22.0"
+    "ws": "^8.22.1"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^5.20261013.1",
